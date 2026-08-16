@@ -1,0 +1,43 @@
+# Ambiente de desenvolvimento local: API + Oracle XE em container.
+# Rodar a partir da raiz do repositório: docker compose -f docker/docker-compose.yml up
+#
+# Oracle Database ainda NÃO está instalado localmente nesta máquina — este compose não foi
+# testado ainda (ver docs/plano-ecommerce.md, seção 1.2). Validar ao configurar o ambiente.
+
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim-faststart
+    container_name: ecommerce-oracle-dev
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-DevPassword123}
+      APP_USER: ecommerce
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:-DevPassword123}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ecommerce-api-dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: >-
+        User Id=ecommerce;Password=${APP_USER_PASSWORD:-DevPassword123};
+        Data Source=oracle:1521/XEPDB1
+      Cors__AllowedOrigins__0: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

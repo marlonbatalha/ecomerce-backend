@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore Ecommerce.slnx
+
+      - name: Format check
+        run: dotnet format Ecommerce.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Ecommerce.slnx --no-restore -c Release
+
+      - name: Unit tests
+        run: dotnet test tests/Ecommerce.UnitTests/Ecommerce.UnitTests.csproj --no-build -c Release --logger "trx"
+
+      # Testes de integração (Testcontainers + Oracle) dependem de Docker no runner e serão
+      # ativados a partir da Fase 1, quando o primeiro repositório/DbContext real existir.
+      # - name: Integration tests
+      #   run: dotnet test tests/Ecommerce.IntegrationTests/Ecommerce.IntegrationTests.csproj --no-build -c Release
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"

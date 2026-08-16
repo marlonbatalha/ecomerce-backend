@@ -1,0 +1,52 @@
+# Build results
+bin/
+obj/
+out/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+# Rider/ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# EF Core
+*.dbmlschema
+
+# Secrets / configuração local (nunca versionar)
+appsettings.Development.json
+appsettings.*.local.json
+*.env
+.env
+.env.*
+**/wallet/
+*.pfx
+
+# Docker
+docker/**/*.local.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
