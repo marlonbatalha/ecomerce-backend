@@ -1,19 +1,19 @@
-namespace Ecommerce.Domain.Common;
+namespace Ecommerce.Domain.Comum;
 
 /// <summary>
 /// Base para toda entidade do domínio: identidade estável (<see cref="Id"/>) e igualdade
 /// por identidade (duas entidades são iguais se forem do mesmo tipo e tiverem o mesmo Id),
 /// não por valor dos campos.
 /// </summary>
-public abstract class Entity
+public abstract class Entidade
 {
     public Guid Id { get; protected init; }
 
-    protected Entity()
+    protected Entidade()
     {
     }
 
-    protected Entity(Guid id)
+    protected Entidade(Guid id)
     {
         if (id == Guid.Empty)
         {
@@ -25,27 +25,27 @@ public abstract class Entity
 
     public override bool Equals(object? obj)
     {
-        if (obj is not Entity other)
+        if (obj is not Entidade outra)
         {
             return false;
         }
 
-        if (ReferenceEquals(this, other))
+        if (ReferenceEquals(this, outra))
         {
             return true;
         }
 
-        if (GetType() != other.GetType())
+        if (GetType() != outra.GetType())
         {
             return false;
         }
 
-        return Id == other.Id;
+        return Id == outra.Id;
     }
 
     public override int GetHashCode() => HashCode.Combine(GetType(), Id);
 
-    public static bool operator ==(Entity? left, Entity? right) => Equals(left, right);
+    public static bool operator ==(Entidade? esquerda, Entidade? direita) => Equals(esquerda, direita);
 
-    public static bool operator !=(Entity? left, Entity? right) => !Equals(left, right);
+    public static bool operator !=(Entidade? esquerda, Entidade? direita) => !Equals(esquerda, direita);
 }

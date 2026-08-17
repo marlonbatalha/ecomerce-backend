@@ -1,4 +1,4 @@
-namespace Ecommerce.Domain.Common;
+namespace Ecommerce.Domain.Comum;
 
 /// <summary>
 /// Violação de uma regra de negócio do domínio (ex.: nome obrigatório, transição de estado
@@ -6,10 +6,10 @@ namespace Ecommerce.Domain.Common;
 /// que fere uma invariante da entidade, e deve ser tratada pela camada acima (Application/Api)
 /// como erro de validação, não como falha inesperada.
 /// </summary>
-public class DomainException : Exception
+public class ExcecaoDeDominio : Exception
 {
-    public DomainException(string message)
-        : base(message)
+    public ExcecaoDeDominio(string mensagem)
+        : base(mensagem)
     {
     }
 }

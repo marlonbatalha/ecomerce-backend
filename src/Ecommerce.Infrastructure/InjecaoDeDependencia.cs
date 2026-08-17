@@ -1,24 +1,24 @@
-using Ecommerce.Infrastructure.Persistence;
+using Ecommerce.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ecommerce.Infrastructure;
 
-public static class DependencyInjection
+public static class InjecaoDeDependencia
 {
     /// <summary>
     /// Registra os serviços da camada de Infrastructure (persistência, integrações externas).
     /// A connection string vem de configuração — em produção/staging, via variável de ambiente
     /// (ex.: ConnectionStrings__Default) apontando para o Oracle Wallet, nunca commitada.
     /// </summary>
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AdicionarInfraestrutura(this IServiceCollection servicos, IConfiguration configuracao)
     {
-        var connectionString = configuration.GetConnectionString("Default");
+        var stringConexao = configuracao.GetConnectionString("Default");
 
-        services.AddDbContext<AppDbContext>(options =>
+        servicos.AddDbContext<ContextoBancoDados>(opcoes =>
         {
-            if (string.IsNullOrWhiteSpace(connectionString))
+            if (string.IsNullOrWhiteSpace(stringConexao))
             {
                 // Sem connection string configurada (ex.: primeiro build local): registra o
                 // DbContext mesmo assim para não quebrar o DI, mas qualquer uso real falhará
@@ -27,9 +27,9 @@ public static class DependencyInjection
                 return;
             }
 
-            options.UseOracle(connectionString);
+            opcoes.UseOracle(stringConexao);
         });
 
-        return services;
+        return servicos;
     }
 }

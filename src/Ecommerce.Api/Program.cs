@@ -10,18 +10,18 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
+    builder.Host.UseSerilog((contexto, servicos, configuracao) => configuracao
+        .ReadFrom.Configuration(contexto.Configuration)
+        .ReadFrom.Services(servicos)
         .Enrich.FromLogContext()
         .WriteTo.Console());
 
-    // Add services to the container.
+    // Registra os serviços no container de DI.
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen(options =>
+    builder.Services.AddSwaggerGen(opcoes =>
     {
-        options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
+        opcoes.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
         {
             Title = "Ecommerce API",
             Version = "v1",
@@ -29,7 +29,7 @@ try
         });
     });
 
-    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AdicionarInfraestrutura(builder.Configuration);
 
     builder.Services
         .AddHealthChecks()
@@ -37,18 +37,18 @@ try
     // Um health check dedicado ao banco (AddOracle/AddDbContextCheck) será adicionado
     // junto com o primeiro DbContext real, na Fase 1 (ver docs/plano-ecommerce.md).
 
-    var corsPolicy = "Frontend";
-    var allowedOrigins = builder.Configuration
+    var politicaCors = "Frontend";
+    var origensPermitidas = builder.Configuration
         .GetSection("Cors:AllowedOrigins")
         .Get<string[]>() ?? [];
 
-    builder.Services.AddCors(options =>
+    builder.Services.AddCors(opcoes =>
     {
-        options.AddPolicy(corsPolicy, policy =>
+        opcoes.AddPolicy(politicaCors, politica =>
         {
-            if (allowedOrigins.Length > 0)
+            if (origensPermitidas.Length > 0)
             {
-                policy.WithOrigins(allowedOrigins)
+                politica.WithOrigins(origensPermitidas)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
@@ -60,19 +60,19 @@ try
 
     app.UseSerilogRequestLogging();
 
-    // Configure the HTTP request pipeline.
+    // Configura o pipeline HTTP.
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
-        app.UseSwaggerUI(options =>
+        app.UseSwaggerUI(opcoes =>
         {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "Ecommerce API v1");
+            opcoes.SwaggerEndpoint("/swagger/v1/swagger.json", "Ecommerce API v1");
         });
     }
 
     app.UseHttpsRedirection();
 
-    app.UseCors(corsPolicy);
+    app.UseCors(politicaCors);
 
     app.UseAuthorization();
 
