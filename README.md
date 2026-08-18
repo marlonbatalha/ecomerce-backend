@@ -59,5 +59,5 @@ Configurações sensíveis (connection strings, chaves de API, segredos) **não*
 - [x] Estrutura de camadas (Clean Architecture) + solution .NET 10
 - [x] CI básico e Docker para ambiente local
 - [x] Primeira entidade de domínio (`Categoria`), com testes
-- [x] EF Core + Oracle com `Categoria` mapeada e primeira migration
-- [ ] Autenticação (Identity + JWT)
+- [x] EF Core + Oracle com `Categoria`, Identity e refresh tokens mapeados
+- [x] Autenticação (Identity + JWT — registro, login, refresh, logout)

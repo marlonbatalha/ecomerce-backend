@@ -15,9 +15,9 @@ public class ContextoBancoDadosFactory : IDesignTimeDbContextFactory<ContextoBan
 {
     public ContextoBancoDados CreateDbContext(string[] args)
     {
-        var opcoes = new DbContextOptionsBuilder<ContextoBancoDados>()
-            .UseOracle("User Id=ecommerce;Password=DevPassword123;Data Source=localhost:1521/XEPDB1")
-            .Options;
+        var builder = new DbContextOptionsBuilder<ContextoBancoDados>();
+        ConfiguracaoOracle.Aplicar(builder, "User Id=ecommerce;Password=DevPassword123;Data Source=localhost:1521/XEPDB1");
+        var opcoes = builder.Options;
 
         return new ContextoBancoDados(opcoes);
     }

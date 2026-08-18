@@ -32,6 +32,7 @@ services:
       ConnectionStrings__Default: >-
         User Id=ecommerce;Password=${APP_USER_PASSWORD:-DevPassword123};
         Data Source=oracle:1521/XEPDB1
+      Jwt__ChaveAssinatura: ${JWT_SIGNING_KEY:-DevSigningKeyChangeMe1234567890}
       Cors__AllowedOrigins__0: http://localhost:3000
     ports:
       - "8080:8080"

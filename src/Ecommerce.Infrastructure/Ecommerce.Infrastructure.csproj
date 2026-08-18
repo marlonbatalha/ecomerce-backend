@@ -18,6 +18,10 @@
          que dependem de Infrastructure. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26300" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
+    <!-- Traz também System.IdentityModel.Tokens.Jwt/Microsoft.IdentityModel.Tokens, usados pra
+         emitir o access token (JwtSecurityToken) além de configurar o esquema de autenticação. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
   </ItemGroup>
 
   <PropertyGroup>

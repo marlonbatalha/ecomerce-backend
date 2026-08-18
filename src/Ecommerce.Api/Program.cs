@@ -1,4 +1,9 @@
+using Ecommerce.Api;
+using Ecommerce.Api.Autenticacao;
 using Ecommerce.Infrastructure;
+using Ecommerce.Infrastructure.Identidade;
+using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -27,9 +32,31 @@ try
             Version = "v1",
             Description = "API do e-commerce (ecomerce-backend) — .NET 10 / Oracle Database.",
         });
+
+        // TODO(Fase 1): documentar o esquema Bearer JWT no Swagger (AddSecurityDefinition/
+        // AddSecurityRequirement) assim que confirmarmos a forma exata da API de segurança do
+        // Microsoft.OpenApi 2.x usada pelo Swashbuckle 10 — os endpoints já funcionam via
+        // Authorization: Bearer <token> mesmo sem essa anotação, só falta o botão "Authorize" na UI.
     });
 
     builder.Services.AdicionarInfraestrutura(builder.Configuration);
+
+    // Validadores FluentValidation dos DTOs de request (ver seção 2.5 do plano).
+    builder.Services.AddScoped<IValidator<RegistrarRequisicao>, RegistrarRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<LoginRequisicao>, LoginRequisicaoValidador>();
+
+    builder.Services.AddRateLimiter(opcoes =>
+    {
+        opcoes.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        // Login/registro: superfície clássica de brute-force/enumeração de e-mail.
+        opcoes.AddFixedWindowLimiter(PoliticasDeRateLimiting.Autenticacao, janela =>
+        {
+            janela.PermitLimit = 10;
+            janela.Window = TimeSpan.FromMinutes(1);
+            janela.QueueLimit = 0;
+        });
+    });
 
     builder.Services
         .AddHealthChecks()
@@ -58,7 +85,23 @@ try
 
     var app = builder.Build();
 
+    await SementeDePapeis.GarantirPapeisAsync(app.Services);
+
     app.UseSerilogRequestLogging();
+
+    // Cabeçalhos de segurança básicos (ver seção 1.7/Fase 1 do plano — revisão completa fica pra
+    // Fase 6, mas o mínimo já entra aqui desde o início).
+    app.Use(async (contexto, proximo) =>
+    {
+        contexto.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+        contexto.Response.Headers.Append("X-Frame-Options", "DENY");
+        await proximo();
+    });
+
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
 
     // Configura o pipeline HTTP.
     if (app.Environment.IsDevelopment())
@@ -74,6 +117,9 @@ try
 
     app.UseCors(politicaCors);
 
+    app.UseRateLimiter();
+
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
@@ -89,4 +135,9 @@ catch (Exception ex) when (ex is not HostAbortedException)
 finally
 {
     Log.CloseAndFlush();
+}
+
+/// <summary>Necessário para <c>WebApplicationFactory&lt;Program&gt;</c> nos testes de integração.</summary>
+public partial class Program
+{
 }
