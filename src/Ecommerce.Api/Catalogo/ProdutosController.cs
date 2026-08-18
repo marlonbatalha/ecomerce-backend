@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Ecommerce.Application.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Comum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -76,7 +78,14 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
     [HttpPut("{id:guid}/variantes/{varianteId:guid}/estoque")]
     [Authorize(Roles = Papeis.Admin)]
     public async Task<ActionResult<ProdutoDto>> AjustarEstoque(Guid id, Guid varianteId, AjustarEstoqueRequisicao requisicao, CancellationToken ct) =>
-        Ok(await servicoProdutos.AjustarEstoqueAsync(new AjustarEstoqueComando(id, varianteId, requisicao.NovoEstoque), ct));
+        Ok(await servicoProdutos.AjustarEstoqueAsync(
+            new AjustarEstoqueComando(id, varianteId, requisicao.NovoEstoque, ObterUsuarioId(), requisicao.Motivo), ct));
+
+    /// <summary>Admin: histórico de ajustes manuais de estoque (auditoria) de uma variante.</summary>
+    [HttpGet("{id:guid}/variantes/{varianteId:guid}/historico-estoque")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<IReadOnlyCollection<AjusteDeEstoqueDto>>> HistoricoDeEstoque(Guid id, Guid varianteId, CancellationToken ct) =>
+        Ok(await servicoProdutos.ObterHistoricoDeEstoqueAsync(varianteId, ct));
 
     [HttpPost("{id:guid}/variantes/{varianteId:guid}/inativar")]
     [Authorize(Roles = Papeis.Admin)]
@@ -87,4 +96,10 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
     [Authorize(Roles = Papeis.Admin)]
     public async Task<ActionResult<ProdutoDto>> AtivarVariante(Guid id, Guid varianteId, CancellationToken ct) =>
         Ok(await servicoProdutos.AtivarVarianteAsync(new AtivarVarianteComando(id, varianteId), ct));
+
+    private Guid ObterUsuarioId()
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return Guid.TryParse(claim, out var usuarioId) ? usuarioId : Guid.Empty;
+    }
 }

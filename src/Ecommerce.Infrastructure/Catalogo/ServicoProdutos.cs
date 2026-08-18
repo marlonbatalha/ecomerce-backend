@@ -1,4 +1,5 @@
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Comum;
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Comum;
 using Ecommerce.Infrastructure.Persistencia;
@@ -70,7 +71,17 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
     public async Task<ProdutoDto> AjustarEstoqueAsync(AjustarEstoqueComando comando, CancellationToken ct = default)
     {
         var produto = await ObterAgregadoOuFalharAsync(comando.ProdutoId, ct);
+        var variante = produto.Variantes.FirstOrDefault(v => v.Id == comando.VarianteId)
+            ?? throw new ExcecaoDeDominio("Variante não encontrada neste produto.");
+        var estoqueAnterior = variante.Estoque;
+
         produto.AjustarEstoqueDaVariante(comando.VarianteId, comando.NovoEstoque);
+
+        // Todo ajuste manual de estoque é auditado — ver Fase 4 do plano ("gestão de estoque com
+        // motivo/auditoria"). Entidade nova e independente: Add explícito de qualquer forma.
+        var ajuste = AjusteDeEstoque.Criar(comando.VarianteId, comando.UsuarioId, estoqueAnterior, comando.NovoEstoque, comando.Motivo);
+        contexto.Add(ajuste);
+
         await contexto.SaveChangesAsync(ct);
 
         return MapearParaDto(produto);
@@ -154,6 +165,19 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
         var itens = produtos.Select(MapearParaResumoDto).ToList();
 
         return new ResultadoPaginado<ProdutoResumoDto>(itens, pagina, tamanhoPagina, totalItens);
+    }
+
+    public async Task<IReadOnlyCollection<AjusteDeEstoqueDto>> ObterHistoricoDeEstoqueAsync(Guid varianteId, CancellationToken ct = default)
+    {
+        var ajustes = await contexto.Set<AjusteDeEstoque>()
+            .AsNoTracking()
+            .Where(a => a.VarianteDeProdutoId == varianteId)
+            .OrderByDescending(a => a.CriadoEmUtc)
+            .ToListAsync(ct);
+
+        return ajustes
+            .Select(a => new AjusteDeEstoqueDto(a.Id, a.EstoqueAnterior, a.EstoqueNovo, a.Motivo, a.UsuarioId, a.CriadoEmUtc))
+            .ToList();
     }
 
     private async Task<Produto> ObterAgregadoOuFalharAsync(Guid id, CancellationToken ct) =>

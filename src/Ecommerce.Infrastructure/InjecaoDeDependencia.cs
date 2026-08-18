@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Application.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Contas;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Infrastructure.Autenticacao;
 using Ecommerce.Infrastructure.Catalogo;
+using Ecommerce.Infrastructure.Contas;
 using Ecommerce.Infrastructure.Identidade;
 using Ecommerce.Infrastructure.Persistencia;
 using Ecommerce.Infrastructure.Vendas;
@@ -52,6 +54,9 @@ public static class InjecaoDeDependencia
         servicos.AddScoped<IServicoDePedidos, ServicoDePedidos>();
         servicos.AddScoped<IServicoDePagamento, ServicoDePagamentoFake>();
         servicos.AddScoped<IServicoDeFrete, ServicoDeFreteFake>();
+        servicos.AddScoped<IServicoEnderecos, ServicoEnderecos>();
+        servicos.AddScoped<IServicoConta, ServicoConta>();
+        servicos.AddScoped<IServicoClientes, ServicoClientes>();
 
         return servicos;
     }

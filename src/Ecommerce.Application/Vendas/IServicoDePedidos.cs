@@ -1,3 +1,6 @@
+using Ecommerce.Application.Comum;
+using Ecommerce.Domain.Vendas;
+
 namespace Ecommerce.Application.Vendas;
 
 /// <summary>
@@ -25,4 +28,10 @@ public interface IServicoDePedidos
 
     /// <summary>Chamado pelo webhook de pagamento — idempotente (reenvio do mesmo evento não falha).</summary>
     Task ProcessarConfirmacaoDePagamentoAsync(string referenciaExterna, bool aprovado, CancellationToken ct = default);
+
+    /// <summary>Admin: lista pedidos de qualquer cliente, opcionalmente filtrado por status.</summary>
+    Task<ResultadoPaginado<PedidoResumoDto>> ListarTodosAsync(StatusPedido? status, int pagina, int tamanhoPagina, CancellationToken ct = default);
+
+    /// <summary>Admin: detalhe de qualquer pedido, sem checagem de dono.</summary>
+    Task<PedidoDto?> ObterPorIdAsync(Guid pedidoId, CancellationToken ct = default);
 }

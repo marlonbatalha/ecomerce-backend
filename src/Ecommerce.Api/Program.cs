@@ -1,6 +1,7 @@
 using Ecommerce.Api;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Api.Catalogo;
+using Ecommerce.Api.Contas;
 using Ecommerce.Api.Middlewares;
 using Ecommerce.Api.Validacao;
 using Ecommerce.Api.Vendas;
@@ -62,6 +63,9 @@ try
     builder.Services.AddScoped<IValidator<AtualizarQuantidadeRequisicao>, AtualizarQuantidadeRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<MarcarComoEnviadoRequisicao>, MarcarComoEnviadoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CalcularFreteRequisicao>, CalcularFreteRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CriarEnderecoRequisicao>, CriarEnderecoRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AtualizarPerfilRequisicao>, AtualizarPerfilRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<TrocarSenhaRequisicao>, TrocarSenhaRequisicaoValidador>();
 
     builder.Services.AddRateLimiter(opcoes =>
     {

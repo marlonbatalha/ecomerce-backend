@@ -1,4 +1,4 @@
-namespace Ecommerce.Application.Catalogo;
+namespace Ecommerce.Application.Comum;
 
 public record ResultadoPaginado<T>(IReadOnlyCollection<T> Itens, int Pagina, int TamanhoPagina, int TotalItens)
 {

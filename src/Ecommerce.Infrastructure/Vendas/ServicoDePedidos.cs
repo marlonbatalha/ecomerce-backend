@@ -1,3 +1,4 @@
+using Ecommerce.Application.Comum;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Comum;
@@ -97,7 +98,34 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
             .OrderByDescending(p => p.CriadoEmUtc)
             .ToListAsync(ct);
 
-        return pedidos.Select(p => new PedidoResumoDto(p.Id, p.Status, p.CriadoEmUtc, p.Total, p.Itens.Count)).ToList();
+        return pedidos.Select(MapearParaResumoDto).ToList();
+    }
+
+    public async Task<ResultadoPaginado<PedidoResumoDto>> ListarTodosAsync(StatusPedido? status, int pagina, int tamanhoPagina, CancellationToken ct = default)
+    {
+        var paginaValida = Math.Max(pagina, 1);
+        var tamanhoValido = Math.Clamp(tamanhoPagina, 1, 100);
+
+        var query = contexto.Pedidos.AsNoTracking().Include(p => p.Itens).AsQueryable();
+        if (status is { } statusFiltro)
+        {
+            query = query.Where(p => p.Status == statusFiltro);
+        }
+
+        var totalItens = await query.CountAsync(ct);
+        var pedidos = await query
+            .OrderByDescending(p => p.CriadoEmUtc)
+            .Skip((paginaValida - 1) * tamanhoValido)
+            .Take(tamanhoValido)
+            .ToListAsync(ct);
+
+        return new ResultadoPaginado<PedidoResumoDto>(pedidos.Select(MapearParaResumoDto).ToList(), paginaValida, tamanhoValido, totalItens);
+    }
+
+    public async Task<PedidoDto?> ObterPorIdAsync(Guid pedidoId, CancellationToken ct = default)
+    {
+        var pedido = await contexto.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
+        return pedido is null ? null : MapearParaDto(pedido);
     }
 
     public async Task<PedidoDto> CancelarAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default)
@@ -165,6 +193,9 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
     private async Task<Pedido> ObterAgregadoOuFalharAsync(Guid pedidoId, CancellationToken ct) =>
         await contexto.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct)
             ?? throw new ExcecaoDeDominio("Pedido não encontrado.");
+
+    private static PedidoResumoDto MapearParaResumoDto(Pedido pedido) =>
+        new(pedido.Id, pedido.UsuarioId, pedido.Status, pedido.CriadoEmUtc, pedido.Total, pedido.Itens.Count);
 
     private static PedidoDto MapearParaDto(Pedido pedido) => new(
         pedido.Id,

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Comum;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -203,8 +204,48 @@ public class ProdutoEndpointsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixt
         clienteComum.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
 
         var respostaAjuste = await clienteComum.PutAsJsonAsync(
-            $"/api/v1/produtos/{produto!.Id}/variantes/{Guid.NewGuid()}/estoque", new { novoEstoque = 100 });
+            $"/api/v1/produtos/{produto!.Id}/variantes/{Guid.NewGuid()}/estoque", new { novoEstoque = 100, motivo = "Ajuste de teste" });
 
         respostaAjuste.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AjustarEstoque_DeveRegistrarNoHistoricoDeAuditoria()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var categoriaId = await CriarCategoriaAsync(clienteAdmin, $"Categoria {Guid.NewGuid():N}");
+
+        var respostaCriar = await clienteAdmin.PostAsJsonAsync("/api/v1/produtos", new
+        {
+            nome = "Produto",
+            descricao = "desc",
+            sku = $"sku-{Guid.NewGuid():N}",
+            preco = 10m,
+            categoriaId,
+        });
+        var produto = await respostaCriar.Content.ReadFromJsonAsync<ProdutoDto>();
+
+        var respostaVariante = await clienteAdmin.PostAsJsonAsync($"/api/v1/produtos/{produto!.Id}/variantes", new
+        {
+            nome = "Único",
+            sku = $"sku-variante-{Guid.NewGuid():N}",
+            preco = 10m,
+            estoque = 5,
+        });
+        var produtoComVariante = await respostaVariante.Content.ReadFromJsonAsync<ProdutoDto>();
+        var varianteId = produtoComVariante!.Variantes.Single().Id;
+
+        var respostaAjuste = await clienteAdmin.PutAsJsonAsync(
+            $"/api/v1/produtos/{produto.Id}/variantes/{varianteId}/estoque", new { novoEstoque = 20, motivo = "Reposição de fornecedor" });
+        respostaAjuste.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var respostaHistorico = await clienteAdmin.GetAsync($"/api/v1/produtos/{produto.Id}/variantes/{varianteId}/historico-estoque");
+        respostaHistorico.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var historico = await respostaHistorico.Content.ReadFromJsonAsync<List<AjusteDeEstoqueDto>>();
+        historico.Should().ContainSingle();
+        historico![0].EstoqueAnterior.Should().Be(5);
+        historico[0].EstoqueNovo.Should().Be(20);
+        historico[0].Motivo.Should().Be("Reposição de fornecedor");
     }
 }

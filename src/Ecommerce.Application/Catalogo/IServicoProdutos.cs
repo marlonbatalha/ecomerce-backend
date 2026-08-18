@@ -1,3 +1,5 @@
+using Ecommerce.Application.Comum;
+
 namespace Ecommerce.Application.Catalogo;
 
 /// <summary>
@@ -28,4 +30,7 @@ public interface IServicoProdutos
 
     /// <summary>Listagem paginada/filtrada — usada tanto na busca pública quanto no admin.</summary>
     Task<ResultadoPaginado<ProdutoResumoDto>> BuscarAsync(BuscarProdutosConsulta consulta, CancellationToken ct = default);
+
+    /// <summary>Admin: histórico de ajustes manuais de estoque de uma variante, mais recente primeiro.</summary>
+    Task<IReadOnlyCollection<AjusteDeEstoqueDto>> ObterHistoricoDeEstoqueAsync(Guid varianteId, CancellationToken ct = default);
 }

@@ -94,9 +94,9 @@ public class Endereco : Entidade
         Cep = cepValido;
     }
 
-    internal void MarcarComoPadrao() => Padrao = true;
+    public void MarcarComoPadrao() => Padrao = true;
 
-    internal void DesmarcarComoPadrao() => Padrao = false;
+    public void DesmarcarComoPadrao() => Padrao = false;
 
     private static (string Rotulo, string Logradouro, string Numero, string? Complemento, string Bairro, string Cidade, string Estado, string Cep)
         GarantirDadosValidos(

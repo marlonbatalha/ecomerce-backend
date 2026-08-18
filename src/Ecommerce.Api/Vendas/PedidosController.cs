@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Ecommerce.Application.Autenticacao;
+using Ecommerce.Application.Comum;
 using Ecommerce.Application.Vendas;
+using Ecommerce.Domain.Vendas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -45,6 +47,22 @@ public class PedidosController(IServicoDePedidos servicoDePedidos, IServicoCarri
     [Authorize(Roles = Papeis.Admin)]
     public async Task<ActionResult<PedidoDto>> MarcarComoEntregue(Guid id, CancellationToken ct) =>
         Ok(await servicoDePedidos.MarcarComoEntregueAsync(id, ct));
+
+    /// <summary>Admin: pedidos de qualquer cliente, opcionalmente filtrado por status.</summary>
+    [HttpGet("admin")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<ResultadoPaginado<PedidoResumoDto>>> ListarTodos(
+        [FromQuery] StatusPedido? status, [FromQuery] int pagina = 1, [FromQuery] int tamanhoPagina = 20, CancellationToken ct = default) =>
+        Ok(await servicoDePedidos.ListarTodosAsync(status, pagina, tamanhoPagina, ct));
+
+    /// <summary>Admin: detalhe de qualquer pedido, sem checagem de dono.</summary>
+    [HttpGet("admin/{id:guid}")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<PedidoDto>> ObterPorIdAdmin(Guid id, CancellationToken ct)
+    {
+        var pedido = await servicoDePedidos.ObterPorIdAsync(id, ct);
+        return pedido is null ? NotFound() : Ok(pedido);
+    }
 
     private Guid ObterUsuarioId()
     {

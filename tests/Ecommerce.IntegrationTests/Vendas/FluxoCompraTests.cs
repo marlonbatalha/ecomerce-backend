@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Comum;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Vendas;
@@ -175,7 +176,8 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
 
         // Admin zera o estoque depois que o item já estava no carrinho — checkout precisa
         // revalidar o estoque atual, não confiar só na checagem de quando entrou no carrinho.
-        await clienteAdmin.PutAsJsonAsync($"/api/v1/produtos/{produtoId}/variantes/{varianteId}/estoque", new { novoEstoque = 0 });
+        await clienteAdmin.PutAsJsonAsync(
+            $"/api/v1/produtos/{produtoId}/variantes/{varianteId}/estoque", new { novoEstoque = 0, motivo = "Ajuste de teste" });
 
         var respostaCheckout = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
 
@@ -206,5 +208,35 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         var carrinho = await respostaCarrinho.Content.ReadFromJsonAsync<CarrinhoDto>();
 
         carrinho!.Itens.Should().ContainSingle(i => i.VarianteDeProdutoId == varianteId && i.Quantidade == 3);
+    }
+
+    [Fact]
+    public async Task ListarPedidosAdmin_DeveVerPedidoDeQualquerCliente()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var (_, varianteId) = await CriarProdutoComEstoqueAsync(clienteAdmin, estoque: 10);
+
+        using var cliente = await CriarClienteLogadoAsync();
+        await cliente.PostAsJsonAsync("/api/v1/carrinho/itens", new { varianteDeProdutoId = varianteId, quantidade = 1 });
+        var respostaCheckout = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var checkout = await respostaCheckout.Content.ReadFromJsonAsync<CheckoutResultado>();
+
+        var respostaListaAdmin = await clienteAdmin.GetAsync("/api/v1/pedidos/admin");
+        respostaListaAdmin.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagina = await respostaListaAdmin.Content.ReadFromJsonAsync<ResultadoPaginado<PedidoResumoDto>>();
+        pagina!.Itens.Should().Contain(p => p.Id == checkout!.Pedido.Id);
+
+        var respostaDetalheAdmin = await clienteAdmin.GetAsync($"/api/v1/pedidos/admin/{checkout!.Pedido.Id}");
+        respostaDetalheAdmin.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ListarPedidosAdmin_ComUsuarioComum_DeveRetornarForbidden()
+    {
+        using var cliente = await CriarClienteLogadoAsync();
+
+        var resposta = await cliente.GetAsync("/api/v1/pedidos/admin");
+
+        resposta.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

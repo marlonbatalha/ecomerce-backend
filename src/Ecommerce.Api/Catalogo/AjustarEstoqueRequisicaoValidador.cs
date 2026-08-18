@@ -7,5 +7,6 @@ public class AjustarEstoqueRequisicaoValidador : AbstractValidator<AjustarEstoqu
     public AjustarEstoqueRequisicaoValidador()
     {
         RuleFor(r => r.NovoEstoque).GreaterThanOrEqualTo(0);
+        RuleFor(r => r.Motivo).NotEmpty().MaximumLength(300);
     }
 }
