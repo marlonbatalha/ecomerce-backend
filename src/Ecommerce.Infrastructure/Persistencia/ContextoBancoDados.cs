@@ -1,3 +1,4 @@
+using Ecommerce.Domain.Catalogo;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ecommerce.Infrastructure.Persistencia;
@@ -9,6 +10,8 @@ namespace Ecommerce.Infrastructure.Persistencia;
 /// </summary>
 public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes) : DbContext(opcoes)
 {
+    public DbSet<Categoria> Categorias => Set<Categoria>();
+
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)
     {
         base.OnModelCreating(construtorDeModelo);

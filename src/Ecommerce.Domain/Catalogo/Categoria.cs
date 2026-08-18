@@ -11,7 +11,8 @@ namespace Ecommerce.Domain.Catalogo;
 /// </summary>
 public class Categoria : Entidade
 {
-    private const int TamanhoMaximoNome = 100;
+    /// <summary>Tamanho máximo do nome — reaproveitado pelo mapeamento EF Core (ver Infrastructure).</summary>
+    public const int TamanhoMaximoNome = 100;
 
     private readonly List<Categoria> _subcategorias = [];
 
