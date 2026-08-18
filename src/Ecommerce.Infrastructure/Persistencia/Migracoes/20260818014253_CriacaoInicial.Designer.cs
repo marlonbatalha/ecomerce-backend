@@ -12,7 +12,7 @@ using Oracle.EntityFrameworkCore.Metadata;
 namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 {
     [DbContext(typeof(ContextoBancoDados))]
-    [Migration("20260818011535_CriacaoInicial")]
+    [Migration("20260818014253_CriacaoInicial")]
     partial class CriacaoInicial
     {
         /// <inheritdoc />
@@ -24,6 +24,41 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             OracleModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.AjusteDeEstoque", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<int>("EstoqueAnterior")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<int>("EstoqueNovo")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<Guid>("VarianteDeProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("VarianteDeProdutoId");
+
+                    b.ToTable("AjustesDeEstoque", (string)null);
+                });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Categoria", b =>
                 {
@@ -160,6 +195,64 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .IsUnique();
 
                     b.ToTable("VariantesDeProduto", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Contas.Endereco", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("Bairro")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)");
+
+                    b.Property<string>("Cep")
+                        .IsRequired()
+                        .HasMaxLength(9)
+                        .HasColumnType("NVARCHAR2(9)");
+
+                    b.Property<string>("Cidade")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)");
+
+                    b.Property<string>("Complemento")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("NVARCHAR2(2)");
+
+                    b.Property<string>("Logradouro")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)");
+
+                    b.Property<bool>("Padrao")
+                        .HasColumnType("NUMBER(1)");
+
+                    b.Property<string>("Rotulo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Enderecos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Identidade.TokenAtualizacao", b =>
@@ -543,6 +636,15 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.AjusteDeEstoque", b =>
+                {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Categoria", b =>
                 {
                     b.HasOne("Ecommerce.Domain.Catalogo.Categoria", "CategoriaPai")
@@ -576,6 +678,15 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasOne("Ecommerce.Domain.Catalogo.Produto", null)
                         .WithMany("Variantes")
                         .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Contas.Endereco", b =>
+                {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -1,4 +1,5 @@
 using Ecommerce.Domain.Catalogo;
+using Ecommerce.Domain.Contas;
 using Ecommerce.Domain.Identidade;
 using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Identidade;
@@ -28,11 +29,15 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
     // duplicado) é via Set<T>().
     public DbSet<Produto> Produtos => Set<Produto>();
 
+    public DbSet<AjusteDeEstoque> AjustesDeEstoque => Set<AjusteDeEstoque>();
+
     public DbSet<Carrinho> Carrinhos => Set<Carrinho>();
 
     public DbSet<Pedido> Pedidos => Set<Pedido>();
 
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
+
+    public DbSet<Endereco> Enderecos => Set<Endereco>();
 
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)
     {
