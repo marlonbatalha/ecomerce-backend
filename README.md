@@ -61,3 +61,5 @@ Configurações sensíveis (connection strings, chaves de API, segredos) **não*
 - [x] Primeira entidade de domínio (`Categoria`), com testes
 - [x] EF Core + Oracle com `Categoria`, Identity e refresh tokens mapeados
 - [x] Autenticação (Identity + JWT — registro, login, refresh, logout)
+- [x] Catálogo: categorias (árvore) e produtos/variantes (CRUD admin, busca pública paginada/filtrada)
+- [ ] Upload de imagem de produto (Object Storage)

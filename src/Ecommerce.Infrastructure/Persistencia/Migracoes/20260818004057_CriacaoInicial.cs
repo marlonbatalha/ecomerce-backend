@@ -200,6 +200,73 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Produtos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Nome = table.Column<string>(type: "NVARCHAR2(150)", maxLength: 150, nullable: false),
+                    Descricao = table.Column<string>(type: "NCLOB", maxLength: 4000, nullable: false),
+                    Sku = table.Column<string>(type: "NVARCHAR2(50)", maxLength: 50, nullable: false),
+                    Preco = table.Column<decimal>(type: "DECIMAL(18,2)", precision: 18, scale: 2, nullable: false),
+                    CategoriaId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Ativo = table.Column<bool>(type: "NUMBER(1)", nullable: false),
+                    CriadoEmUtc = table.Column<DateTime>(type: "TIMESTAMP(7)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Produtos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Produtos_Categorias_CategoriaId",
+                        column: x => x.CategoriaId,
+                        principalTable: "Categorias",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ImagensDeProduto",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    ProdutoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Url = table.Column<string>(type: "NVARCHAR2(500)", maxLength: 500, nullable: false),
+                    Ordem = table.Column<int>(type: "NUMBER(10)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ImagensDeProduto", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ImagensDeProduto_Produtos_ProdutoId",
+                        column: x => x.ProdutoId,
+                        principalTable: "Produtos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "VariantesDeProduto",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    ProdutoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Nome = table.Column<string>(type: "NVARCHAR2(100)", maxLength: 100, nullable: false),
+                    Sku = table.Column<string>(type: "NVARCHAR2(50)", maxLength: 50, nullable: false),
+                    Preco = table.Column<decimal>(type: "DECIMAL(18,2)", precision: 18, scale: 2, nullable: false),
+                    Estoque = table.Column<int>(type: "NUMBER(10)", nullable: false),
+                    Ativo = table.Column<bool>(type: "NUMBER(1)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_VariantesDeProduto", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_VariantesDeProduto_Produtos_ProdutoId",
+                        column: x => x.ProdutoId,
+                        principalTable: "Produtos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -251,6 +318,22 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_ImagensDeProduto_ProdutoId",
+                table: "ImagensDeProduto",
+                column: "ProdutoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Produtos_CategoriaId",
+                table: "Produtos",
+                column: "CategoriaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Produtos_Sku",
+                table: "Produtos",
+                column: "Sku",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TokensAtualizacao_HashToken",
                 table: "TokensAtualizacao",
                 column: "HashToken",
@@ -260,6 +343,17 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 name: "IX_TokensAtualizacao_UsuarioId",
                 table: "TokensAtualizacao",
                 column: "UsuarioId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VariantesDeProduto_ProdutoId",
+                table: "VariantesDeProduto",
+                column: "ProdutoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VariantesDeProduto_Sku",
+                table: "VariantesDeProduto",
+                column: "Sku",
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -281,16 +375,25 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Categorias");
+                name: "ImagensDeProduto");
 
             migrationBuilder.DropTable(
                 name: "TokensAtualizacao");
+
+            migrationBuilder.DropTable(
+                name: "VariantesDeProduto");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Produtos");
+
+            migrationBuilder.DropTable(
+                name: "Categorias");
         }
     }
 }

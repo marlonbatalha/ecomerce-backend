@@ -1,5 +1,3 @@
-using Xunit;
-
 // Cada classe de teste sobe seu próprio WebApplicationFactory<Program> (host ASP.NET Core
 // completo, em processo). Rodar mais de um em paralelo faz dois hosts disputarem o logger
 // estático do Serilog (Log.Logger / Log.CloseAndFlush em Program.cs) — um teste fecha o logger

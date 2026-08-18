@@ -21,6 +21,12 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
 
     public DbSet<TokenAtualizacao> TokensAtualizacao => Set<TokenAtualizacao>();
 
+    // VarianteDeProduto/ImagemDeProduto não têm DbSet próprio de propósito — pertencem ao
+    // agregado Produto (ver ConfiguracaoProduto) e são descobertas pelo EF via as navigations
+    // Produto.Variantes/Produto.Imagens; acesso direto quando necessário (ex.: checar SKU
+    // duplicado) é via Set<T>().
+    public DbSet<Produto> Produtos => Set<Produto>();
+
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)
     {
         base.OnModelCreating(construtorDeModelo);

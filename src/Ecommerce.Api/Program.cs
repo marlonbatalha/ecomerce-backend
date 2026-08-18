@@ -53,6 +53,10 @@ try
     builder.Services.AddScoped<IValidator<LoginRequisicao>, LoginRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CriarCategoriaRequisicao>, CriarCategoriaRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<RenomearCategoriaRequisicao>, RenomearCategoriaRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CriarProdutoRequisicao>, CriarProdutoRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AtualizarProdutoRequisicao>, AtualizarProdutoRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AdicionarVarianteRequisicao>, AdicionarVarianteRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AjustarEstoqueRequisicao>, AjustarEstoqueRequisicaoValidador>();
 
     builder.Services.AddRateLimiter(opcoes =>
     {

@@ -1,0 +1,57 @@
+using Ecommerce.Domain.Catalogo;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Ecommerce.Infrastructure.Persistencia.Configuracoes;
+
+public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
+{
+    public void Configure(EntityTypeBuilder<Produto> builder)
+    {
+        builder.ToTable("Produtos");
+
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Nome)
+            .HasMaxLength(Produto.TamanhoMaximoNome)
+            .IsRequired();
+
+        builder.Property(p => p.Descricao)
+            .HasMaxLength(Produto.TamanhoMaximoDescricao);
+
+        builder.Property(p => p.Sku)
+            .HasMaxLength(Produto.TamanhoMaximoSku)
+            .IsRequired();
+
+        builder.Property(p => p.Preco).HasPrecision(18, 2);
+
+        builder.HasIndex(p => p.Sku).IsUnique();
+
+        builder.HasIndex(p => p.CategoriaId);
+
+        // Sem navigation property pra Categoria (agregados diferentes) — FK só de banco.
+        // Restrict: não deixa apagar uma categoria que ainda tem produto (mesma lógica do
+        // auto-relacionamento de Categoria — remoção em cascata tem que ser explícita).
+        builder.HasOne<Categoria>()
+            .WithMany()
+            .HasForeignKey(p => p.CategoriaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Variantes/Imagens pertencem ao agregado Produto — cascade aqui é o comportamento
+        // correto (apagar o produto apaga suas variantes/imagens junto).
+        builder.HasMany(p => p.Variantes)
+            .WithOne()
+            .HasForeignKey(v => v.ProdutoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(p => p.Imagens)
+            .WithOne()
+            .HasForeignKey(i => i.ProdutoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Variantes/Imagens são expostas só como IReadOnlyCollection (sem setter público) — o EF
+        // precisa ler/escrever direto no campo privado que apoia cada coleção.
+        builder.Metadata.FindNavigation(nameof(Produto.Variantes))!.SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(Produto.Imagens))!.SetPropertyAccessMode(PropertyAccessMode.Field);
+    }
+}

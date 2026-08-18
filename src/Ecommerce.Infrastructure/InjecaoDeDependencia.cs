@@ -44,6 +44,7 @@ public static class InjecaoDeDependencia
 
         servicos.AddScoped<IServicoAutenticacao, ServicoAutenticacao>();
         servicos.AddScoped<IServicoCategorias, ServicoCategorias>();
+        servicos.AddScoped<IServicoProdutos, ServicoProdutos>();
 
         return servicos;
     }

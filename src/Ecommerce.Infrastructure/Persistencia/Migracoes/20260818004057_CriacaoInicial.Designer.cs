@@ -12,7 +12,7 @@ using Oracle.EntityFrameworkCore.Metadata;
 namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 {
     [DbContext(typeof(ContextoBancoDados))]
-    [Migration("20260818002051_CriacaoInicial")]
+    [Migration("20260818004057_CriacaoInicial")]
     partial class CriacaoInicial
     {
         /// <inheritdoc />
@@ -52,6 +52,113 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .IsUnique();
 
                     b.ToTable("Categorias", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.ImagemDeProduto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<Guid>("ProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.ToTable("ImagensDeProduto", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.Produto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("NUMBER(1)");
+
+                    b.Property<Guid>("CategoriaId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("NCLOB");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)");
+
+                    b.Property<decimal>("Preco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaId");
+
+                    b.HasIndex("Sku")
+                        .IsUnique();
+
+                    b.ToTable("Produtos", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.VarianteDeProduto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("NUMBER(1)");
+
+                    b.Property<int>("Estoque")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)");
+
+                    b.Property<decimal>("Preco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<Guid>("ProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.HasIndex("Sku")
+                        .IsUnique();
+
+                    b.ToTable("VariantesDeProduto", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Identidade.TokenAtualizacao", b =>
@@ -302,6 +409,33 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.Navigation("CategoriaPai");
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.ImagemDeProduto", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Catalogo.Produto", null)
+                        .WithMany("Imagens")
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.Produto", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Catalogo.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("CategoriaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.VarianteDeProduto", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Catalogo.Produto", null)
+                        .WithMany("Variantes")
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Ecommerce.Domain.Identidade.TokenAtualizacao", b =>
                 {
                     b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
@@ -365,6 +499,13 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Categoria", b =>
                 {
                     b.Navigation("Subcategorias");
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Catalogo.Produto", b =>
+                {
+                    b.Navigation("Imagens");
+
+                    b.Navigation("Variantes");
                 });
 #pragma warning restore 612, 618
         }
