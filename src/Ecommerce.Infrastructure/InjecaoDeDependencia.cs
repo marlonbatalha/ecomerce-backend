@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Application.Autenticacao;
+using Ecommerce.Application.Catalogo;
 using Ecommerce.Infrastructure.Autenticacao;
+using Ecommerce.Infrastructure.Catalogo;
 using Ecommerce.Infrastructure.Identidade;
 using Ecommerce.Infrastructure.Persistencia;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -41,6 +43,7 @@ public static class InjecaoDeDependencia
         AdicionarIdentidadeEJwt(servicos, configuracao);
 
         servicos.AddScoped<IServicoAutenticacao, ServicoAutenticacao>();
+        servicos.AddScoped<IServicoCategorias, ServicoCategorias>();
 
         return servicos;
     }

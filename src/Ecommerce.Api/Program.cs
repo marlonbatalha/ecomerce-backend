@@ -1,5 +1,8 @@
 using Ecommerce.Api;
 using Ecommerce.Api.Autenticacao;
+using Ecommerce.Api.Catalogo;
+using Ecommerce.Api.Middlewares;
+using Ecommerce.Api.Validacao;
 using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Identidade;
 using FluentValidation;
@@ -22,7 +25,10 @@ try
         .WriteTo.Console());
 
     // Registra os serviços no container de DI.
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(opcoes => opcoes.Filters.Add<FiltroDeValidacao>());
+    builder.Services.AddScoped<FiltroDeValidacao>();
+    builder.Services.AddExceptionHandler<ManipuladorDeExcecoesDeDominio>();
+    builder.Services.AddProblemDetails();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(opcoes =>
     {
@@ -41,9 +47,12 @@ try
 
     builder.Services.AdicionarInfraestrutura(builder.Configuration);
 
-    // Validadores FluentValidation dos DTOs de request (ver seção 2.5 do plano).
+    // Validadores FluentValidation dos DTOs de request (ver seção 2.5 do plano) — aplicados
+    // automaticamente pelo FiltroDeValidacao registrado acima.
     builder.Services.AddScoped<IValidator<RegistrarRequisicao>, RegistrarRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<LoginRequisicao>, LoginRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CriarCategoriaRequisicao>, CriarCategoriaRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<RenomearCategoriaRequisicao>, RenomearCategoriaRequisicaoValidador>();
 
     builder.Services.AddRateLimiter(opcoes =>
     {
@@ -86,6 +95,8 @@ try
     var app = builder.Build();
 
     await SementeDePapeis.GarantirPapeisAsync(app.Services);
+
+    app.UseExceptionHandler();
 
     app.UseSerilogRequestLogging();
 
