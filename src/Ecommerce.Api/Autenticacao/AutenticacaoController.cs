@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Ecommerce.Application.Autenticacao;
+using Ecommerce.Application.Vendas;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace Ecommerce.Api.Autenticacao;
 [Route("api/v1/auth")]
 public class AutenticacaoController(
     IServicoAutenticacao servicoAutenticacao,
+    IServicoCarrinho servicoCarrinho,
     IValidator<RegistrarRequisicao> validadorRegistrar,
     IValidator<LoginRequisicao> validadorLogin) : ControllerBase
 {
@@ -35,6 +37,8 @@ public class AutenticacaoController(
             return BadRequest(new { erro = resultado.Erro });
         }
 
+        await MesclarCarrinhoAnonimoSeExistirAsync(resultado.UsuarioId!.Value, ct);
+
         return Ok(MontarResposta(resultado));
     }
 
@@ -55,6 +59,8 @@ public class AutenticacaoController(
         {
             return Unauthorized(new { erro = resultado.Erro });
         }
+
+        await MesclarCarrinhoAnonimoSeExistirAsync(resultado.UsuarioId!.Value, ct);
 
         return Ok(MontarResposta(resultado));
     }
@@ -103,6 +109,19 @@ public class AutenticacaoController(
             nome = User.FindFirstValue("nome"),
             papeis = User.FindAll(ClaimTypes.Role).Select(c => c.Value),
         });
+    }
+
+    /// <summary>Funde o carrinho anônimo (se houver cookie) no carrinho do usuário recém-autenticado — ver Fase 3 do plano.</summary>
+    private async Task MesclarCarrinhoAnonimoSeExistirAsync(Guid usuarioId, CancellationToken ct)
+    {
+        var idSessao = Request.Cookies[NomesDeCookies.SessaoCarrinho];
+        if (string.IsNullOrWhiteSpace(idSessao))
+        {
+            return;
+        }
+
+        await servicoCarrinho.MesclarAnonimoNoUsuarioAsync(idSessao, usuarioId, ct);
+        Response.Cookies.Delete(NomesDeCookies.SessaoCarrinho);
     }
 
     private TokenRespostaDto MontarResposta(ResultadoAutenticacao resultado)

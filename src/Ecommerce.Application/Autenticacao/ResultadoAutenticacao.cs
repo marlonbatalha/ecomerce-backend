@@ -19,15 +19,20 @@ public record ResultadoAutenticacao
 
     public DateTime? RefreshTokenExpiraEmUtc { get; private init; }
 
+    /// <summary>Usado, por exemplo, pra mesclar o carrinho anônimo no carrinho do usuário após o login (ver Fase 3 do plano).</summary>
+    public Guid? UsuarioId { get; private init; }
+
     public static ResultadoAutenticacao ComFalha(string erro) => new() { Sucesso = false, Erro = erro };
 
     public static ResultadoAutenticacao ComSucesso(
+        Guid usuarioId,
         string accessToken,
         DateTime accessTokenExpiraEmUtc,
         string refreshToken,
         DateTime refreshTokenExpiraEmUtc) => new()
         {
             Sucesso = true,
+            UsuarioId = usuarioId,
             AccessToken = accessToken,
             AccessTokenExpiraEmUtc = accessTokenExpiraEmUtc,
             RefreshToken = refreshToken,

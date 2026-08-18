@@ -2,10 +2,12 @@ using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Application.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Vendas;
 using Ecommerce.Infrastructure.Autenticacao;
 using Ecommerce.Infrastructure.Catalogo;
 using Ecommerce.Infrastructure.Identidade;
 using Ecommerce.Infrastructure.Persistencia;
+using Ecommerce.Infrastructure.Vendas;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -41,10 +43,15 @@ public static class InjecaoDeDependencia
         });
 
         AdicionarIdentidadeEJwt(servicos, configuracao);
+        AdicionarOpcoesWebhook(servicos, configuracao);
 
         servicos.AddScoped<IServicoAutenticacao, ServicoAutenticacao>();
         servicos.AddScoped<IServicoCategorias, ServicoCategorias>();
         servicos.AddScoped<IServicoProdutos, ServicoProdutos>();
+        servicos.AddScoped<IServicoCarrinho, ServicoCarrinho>();
+        servicos.AddScoped<IServicoDePedidos, ServicoDePedidos>();
+        servicos.AddScoped<IServicoDePagamento, ServicoDePagamentoFake>();
+        servicos.AddScoped<IServicoDeFrete, ServicoDeFreteFake>();
 
         return servicos;
     }
@@ -103,5 +110,21 @@ public static class InjecaoDeDependencia
             });
 
         servicos.AddAuthorization();
+    }
+
+    private static void AdicionarOpcoesWebhook(IServiceCollection servicos, IConfiguration configuracao)
+    {
+        var secaoWebhook = configuracao.GetSection(OpcoesWebhook.SecaoConfiguracao);
+        var opcoesWebhook = secaoWebhook.Get<OpcoesWebhook>() ?? new OpcoesWebhook();
+
+        if (string.IsNullOrWhiteSpace(opcoesWebhook.ChaveSecreta))
+        {
+            // Mesmo raciocínio do fallback de OpcoesJwt acima: sem chave configurada, gera uma só
+            // pra esse processo (dev). Em staging/produção a chave real vem de secret e é a MESMA
+            // configurada no gateway de pagamento (nunca cai nesse caminho lá).
+            opcoesWebhook.ChaveSecreta = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        }
+
+        servicos.Configure<OpcoesWebhook>(o => o.ChaveSecreta = opcoesWebhook.ChaveSecreta);
     }
 }

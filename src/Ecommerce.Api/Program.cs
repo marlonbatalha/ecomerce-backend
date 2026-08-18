@@ -3,6 +3,7 @@ using Ecommerce.Api.Autenticacao;
 using Ecommerce.Api.Catalogo;
 using Ecommerce.Api.Middlewares;
 using Ecommerce.Api.Validacao;
+using Ecommerce.Api.Vendas;
 using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Identidade;
 using FluentValidation;
@@ -57,15 +58,24 @@ try
     builder.Services.AddScoped<IValidator<AtualizarProdutoRequisicao>, AtualizarProdutoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AdicionarVarianteRequisicao>, AdicionarVarianteRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AjustarEstoqueRequisicao>, AjustarEstoqueRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AdicionarItemRequisicao>, AdicionarItemRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<AtualizarQuantidadeRequisicao>, AtualizarQuantidadeRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<MarcarComoEnviadoRequisicao>, MarcarComoEnviadoRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CalcularFreteRequisicao>, CalcularFreteRequisicaoValidador>();
 
     builder.Services.AddRateLimiter(opcoes =>
     {
         opcoes.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-        // Login/registro: superfície clássica de brute-force/enumeração de e-mail.
+        // Login/registro: superfície clássica de brute-force/enumeração de e-mail. Em
+        // Development (ambiente também usado pelos testes de integração via
+        // WebApplicationFactory) o limite é bem mais alto — vários testes que sobem o mesmo host
+        // fazem várias chamadas de auth em segundos, e não queremos derrubar a suíte por 429.
+        var limiteAutenticacao = builder.Environment.IsDevelopment() ? 1000 : 10;
+
         opcoes.AddFixedWindowLimiter(PoliticasDeRateLimiting.Autenticacao, janela =>
         {
-            janela.PermitLimit = 10;
+            janela.PermitLimit = limiteAutenticacao;
             janela.Window = TimeSpan.FromMinutes(1);
             janela.QueueLimit = 0;
         });

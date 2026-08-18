@@ -62,4 +62,6 @@ Configurações sensíveis (connection strings, chaves de API, segredos) **não*
 - [x] EF Core + Oracle com `Categoria`, Identity e refresh tokens mapeados
 - [x] Autenticação (Identity + JWT — registro, login, refresh, logout)
 - [x] Catálogo: categorias (árvore) e produtos/variantes (CRUD admin, busca pública paginada/filtrada)
+- [x] Carrinho (autenticado ou anônimo) e Pedido (checkout, máquina de estados, webhook de pagamento)
 - [ ] Upload de imagem de produto (Object Storage)
+- [ ] Gateway de pagamento real (Stripe/Mercado Pago/PagBank — decisão pendente)

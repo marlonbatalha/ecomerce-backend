@@ -162,7 +162,7 @@ public class ServicoAutenticacao(
 
         await contexto.SaveChangesAsync(ct);
 
-        return ResultadoAutenticacao.ComSucesso(accessToken, accessTokenExpiraEm, refreshTokenBruto, tokenAtualizacao.ExpiraEmUtc);
+        return ResultadoAutenticacao.ComSucesso(usuario.Id, accessToken, accessTokenExpiraEm, refreshTokenBruto, tokenAtualizacao.ExpiraEmUtc);
     }
 
     private static string GerarRefreshTokenBruto() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
