@@ -12,7 +12,7 @@ using Oracle.EntityFrameworkCore.Metadata;
 namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 {
     [DbContext(typeof(ContextoBancoDados))]
-    [Migration("20260818004057_CriacaoInicial")]
+    [Migration("20260818011535_CriacaoInicial")]
     partial class CriacaoInicial
     {
         /// <inheritdoc />
@@ -132,6 +132,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("NUMBER(1)");
 
                     b.Property<int>("Estoque")
+                        .IsConcurrencyToken()
                         .HasColumnType("NUMBER(10)");
 
                     b.Property<string>("Nome")
@@ -196,6 +197,149 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("TokensAtualizacao", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Carrinho", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("IdSessao")
+                        .HasMaxLength(64)
+                        .HasColumnType("NVARCHAR2(64)");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdSessao")
+                        .IsUnique()
+                        .HasFilter("\"IdSessao\" IS NOT NULL");
+
+                    b.HasIndex("UsuarioId")
+                        .IsUnique()
+                        .HasFilter("\"UsuarioId\" IS NOT NULL");
+
+                    b.ToTable("Carrinhos", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoCarrinho", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<Guid>("CarrinhoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<Guid>("VarianteDeProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarrinhoId");
+
+                    b.ToTable("ItensDoCarrinho", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoPedido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("NomeProduto")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)");
+
+                    b.Property<Guid>("PedidoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<Guid>("VarianteDeProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PedidoId");
+
+                    b.ToTable("ItensDoPedido", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Pagamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<Guid>("PedidoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("ReferenciaExterna")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("ReferenciaExterna")
+                        .IsUnique();
+
+                    b.ToTable("Pagamentos", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Pedido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<string>("CodigoRastreio")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Pedidos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Infrastructure.Identidade.Usuario", b =>
@@ -445,6 +589,41 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Carrinho", b =>
+                {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoCarrinho", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Vendas.Carrinho", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("CarrinhoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoPedido", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Vendas.Pedido", null)
+                        .WithMany("Itens")
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Pedido", b =>
+                {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -506,6 +685,16 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.Navigation("Imagens");
 
                     b.Navigation("Variantes");
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Carrinho", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Pedido", b =>
+                {
+                    b.Navigation("Itens");
                 });
 #pragma warning restore 612, 618
         }

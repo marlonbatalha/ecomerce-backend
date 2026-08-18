@@ -1,5 +1,6 @@
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Identidade;
+using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -26,6 +27,12 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
     // Produto.Variantes/Produto.Imagens; acesso direto quando necessário (ex.: checar SKU
     // duplicado) é via Set<T>().
     public DbSet<Produto> Produtos => Set<Produto>();
+
+    public DbSet<Carrinho> Carrinhos => Set<Carrinho>();
+
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
+
+    public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
 
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)
     {

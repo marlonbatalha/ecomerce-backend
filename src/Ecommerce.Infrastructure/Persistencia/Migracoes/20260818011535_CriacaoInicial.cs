@@ -72,6 +72,22 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 });
 
             migrationBuilder.CreateTable(
+                name: "Pagamentos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    PedidoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    ReferenciaExterna = table.Column<string>(type: "NVARCHAR2(200)", maxLength: 200, nullable: false),
+                    Valor = table.Column<decimal>(type: "DECIMAL(18,2)", precision: 18, scale: 2, nullable: false),
+                    Status = table.Column<string>(type: "NVARCHAR2(20)", maxLength: 20, nullable: false),
+                    CriadoEmUtc = table.Column<DateTime>(type: "TIMESTAMP(7)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Pagamentos", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
                 columns: table => new
                 {
@@ -178,6 +194,46 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 });
 
             migrationBuilder.CreateTable(
+                name: "Carrinhos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "RAW(16)", nullable: true),
+                    IdSessao = table.Column<string>(type: "NVARCHAR2(64)", maxLength: 64, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Carrinhos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Carrinhos_AspNetUsers_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Pedidos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Status = table.Column<string>(type: "NVARCHAR2(30)", maxLength: 30, nullable: false),
+                    CriadoEmUtc = table.Column<DateTime>(type: "TIMESTAMP(7)", nullable: false),
+                    CodigoRastreio = table.Column<string>(type: "NVARCHAR2(50)", maxLength: 50, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Pedidos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Pedidos_AspNetUsers_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TokensAtualizacao",
                 columns: table => new
                 {
@@ -222,6 +278,48 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         principalTable: "Categorias",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ItensDoCarrinho",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    CarrinhoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    VarianteDeProdutoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    Quantidade = table.Column<int>(type: "NUMBER(10)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ItensDoCarrinho", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ItensDoCarrinho_Carrinhos_CarrinhoId",
+                        column: x => x.CarrinhoId,
+                        principalTable: "Carrinhos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ItensDoPedido",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    PedidoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    VarianteDeProdutoId = table.Column<Guid>(type: "RAW(16)", nullable: false),
+                    NomeProduto = table.Column<string>(type: "NVARCHAR2(150)", maxLength: 150, nullable: false),
+                    PrecoUnitario = table.Column<decimal>(type: "DECIMAL(18,2)", precision: 18, scale: 2, nullable: false),
+                    Quantidade = table.Column<int>(type: "NUMBER(10)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ItensDoPedido", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ItensDoPedido_Pedidos_PedidoId",
+                        column: x => x.PedidoId,
+                        principalTable: "Pedidos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -307,6 +405,20 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 filter: "\"NormalizedUserName\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Carrinhos_IdSessao",
+                table: "Carrinhos",
+                column: "IdSessao",
+                unique: true,
+                filter: "\"IdSessao\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Carrinhos_UsuarioId",
+                table: "Carrinhos",
+                column: "UsuarioId",
+                unique: true,
+                filter: "\"UsuarioId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Categorias_CategoriaPaiId",
                 table: "Categorias",
                 column: "CategoriaPaiId");
@@ -321,6 +433,32 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 name: "IX_ImagensDeProduto_ProdutoId",
                 table: "ImagensDeProduto",
                 column: "ProdutoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ItensDoCarrinho_CarrinhoId",
+                table: "ItensDoCarrinho",
+                column: "CarrinhoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ItensDoPedido_PedidoId",
+                table: "ItensDoPedido",
+                column: "PedidoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Pagamentos_PedidoId",
+                table: "Pagamentos",
+                column: "PedidoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Pagamentos_ReferenciaExterna",
+                table: "Pagamentos",
+                column: "ReferenciaExterna",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Pedidos_UsuarioId",
+                table: "Pedidos",
+                column: "UsuarioId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Produtos_CategoriaId",
@@ -378,6 +516,15 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 name: "ImagensDeProduto");
 
             migrationBuilder.DropTable(
+                name: "ItensDoCarrinho");
+
+            migrationBuilder.DropTable(
+                name: "ItensDoPedido");
+
+            migrationBuilder.DropTable(
+                name: "Pagamentos");
+
+            migrationBuilder.DropTable(
                 name: "TokensAtualizacao");
 
             migrationBuilder.DropTable(
@@ -387,10 +534,16 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUsers");
+                name: "Carrinhos");
+
+            migrationBuilder.DropTable(
+                name: "Pedidos");
 
             migrationBuilder.DropTable(
                 name: "Produtos");
+
+            migrationBuilder.DropTable(
+                name: "AspNetUsers");
 
             migrationBuilder.DropTable(
                 name: "Categorias");
