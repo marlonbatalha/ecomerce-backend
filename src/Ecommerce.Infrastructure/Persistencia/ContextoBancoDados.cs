@@ -43,6 +43,17 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
     {
         base.OnModelCreating(construtorDeModelo);
 
+        // O ASP.NET Core Identity mapeia suas próprias tabelas (AspNetUsers, AspNetRoles, ...) em
+        // inglês por padrão — sobrescreve aqui pra seguir o mesmo padrão do resto do schema
+        // (PascalCase em português, ver ConfiguracaoCategoria e demais em Persistencia/Configuracoes).
+        construtorDeModelo.Entity<Usuario>().ToTable("Usuarios");
+        construtorDeModelo.Entity<IdentityRole<Guid>>().ToTable("Papeis");
+        construtorDeModelo.Entity<IdentityUserRole<Guid>>().ToTable("UsuariosPapeis");
+        construtorDeModelo.Entity<IdentityUserClaim<Guid>>().ToTable("ClaimsDeUsuario");
+        construtorDeModelo.Entity<IdentityRoleClaim<Guid>>().ToTable("ClaimsDePapel");
+        construtorDeModelo.Entity<IdentityUserLogin<Guid>>().ToTable("LoginsDeUsuario");
+        construtorDeModelo.Entity<IdentityUserToken<Guid>>().ToTable("TokensDeUsuario");
+
         construtorDeModelo.ApplyConfigurationsFromAssembly(typeof(ContextoBancoDados).Assembly);
     }
 }

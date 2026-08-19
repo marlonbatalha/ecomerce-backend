@@ -12,7 +12,7 @@ using Oracle.EntityFrameworkCore.Metadata;
 namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 {
     [DbContext(typeof(ContextoBancoDados))]
-    [Migration("20260818014253_CriacaoInicial")]
+    [Migration("20260819044832_CriacaoInicial")]
     partial class CriacaoInicial
     {
         /// <inheritdoc />
@@ -502,7 +502,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("\"NormalizedUserName\" IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("Usuarios", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -530,7 +530,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("\"NormalizedName\" IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("Papeis", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -554,7 +554,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("ClaimsDePapel", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -578,7 +578,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("ClaimsDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -599,7 +599,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("LoginsDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -614,7 +614,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("UsuariosPapeis", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -633,7 +633,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("TokensDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.AjusteDeEstoque", b =>
