@@ -1,0 +1,54 @@
+# Ambiente de homologação (staging): API + Oracle XE em container.
+# Isolado do docker-compose.yml de desenvolvimento (nomes, volume e portas de host diferentes) —
+# assim os dois podem rodar ao mesmo tempo na mesma máquina sem misturar dado de dev com dado de
+# homolog.
+#
+# Segredos NUNCA têm default aqui (ao contrário do compose de dev) — exigem um arquivo
+# docker/.env.staging (gitignored, nunca versionar) com:
+#   ORACLE_PASSWORD_STAGING=...
+#   APP_USER_PASSWORD_STAGING=...
+#   JWT_SIGNING_KEY_STAGING=...
+#   WEBHOOK_SIGNING_KEY_STAGING=...
+#
+# Rodar a partir da raiz do repositório:
+#   docker compose -f docker/docker-compose.staging.yml --env-file docker/.env.staging up
+
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim-faststart
+    container_name: ecommerce-oracle-staging
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD_STAGING:?defina ORACLE_PASSWORD_STAGING em docker/.env.staging}
+      APP_USER: ecommerce
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD_STAGING:?defina APP_USER_PASSWORD_STAGING em docker/.env.staging}
+    ports:
+      - "1522:1521"
+    volumes:
+      - oracle-data-staging:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ecommerce-api-staging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Staging
+      ConnectionStrings__Default: >-
+        User Id=ecommerce;Password=${APP_USER_PASSWORD_STAGING:?defina APP_USER_PASSWORD_STAGING em docker/.env.staging};
+        Data Source=oracle:1521/XEPDB1
+      Jwt__ChaveAssinatura: ${JWT_SIGNING_KEY_STAGING:?defina JWT_SIGNING_KEY_STAGING em docker/.env.staging}
+      Webhook__ChaveSecreta: ${WEBHOOK_SIGNING_KEY_STAGING:?defina WEBHOOK_SIGNING_KEY_STAGING em docker/.env.staging}
+      Cors__AllowedOrigins__0: ${STAGING_FRONTEND_ORIGIN:-http://localhost:3000}
+    ports:
+      - "8081:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data-staging:
