@@ -8,7 +8,7 @@ public class ConfiguracaoVarianteDeProduto : IEntityTypeConfiguration<VarianteDe
 {
     public void Configure(EntityTypeBuilder<VarianteDeProduto> builder)
     {
-        builder.ToTable("VariantesDeProduto");
+        builder.ToTable("CAT_VariantesDeProduto");
 
         builder.HasKey(v => v.Id);
 

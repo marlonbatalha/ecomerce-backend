@@ -8,7 +8,7 @@ public class ConfiguracaoItemDoPedido : IEntityTypeConfiguration<ItemDoPedido>
 {
     public void Configure(EntityTypeBuilder<ItemDoPedido> builder)
     {
-        builder.ToTable("ItensDoPedido");
+        builder.ToTable("VND_ItensDoPedido");
 
         builder.HasKey(i => i.Id);
 

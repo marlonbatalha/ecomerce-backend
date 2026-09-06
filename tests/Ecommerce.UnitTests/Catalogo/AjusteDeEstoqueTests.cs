@@ -1,5 +1,5 @@
-using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Comum;
+using Ecommerce.Domain.Estoque;
 using FluentAssertions;
 
 namespace Ecommerce.UnitTests.Catalogo;

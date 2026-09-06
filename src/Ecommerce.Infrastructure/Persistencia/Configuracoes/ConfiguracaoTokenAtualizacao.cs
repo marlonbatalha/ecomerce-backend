@@ -9,7 +9,7 @@ public class ConfiguracaoTokenAtualizacao : IEntityTypeConfiguration<TokenAtuali
 {
     public void Configure(EntityTypeBuilder<TokenAtualizacao> builder)
     {
-        builder.ToTable("TokensAtualizacao");
+        builder.ToTable("IDN_TokensAtualizacao");
 
         builder.HasKey(t => t.Id);
 

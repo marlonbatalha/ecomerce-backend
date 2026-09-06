@@ -1,6 +1,6 @@
 using Ecommerce.Domain.Comum;
 
-namespace Ecommerce.Domain.Catalogo;
+namespace Ecommerce.Domain.Estoque;
 
 /// <summary>
 /// Registro imutável de um ajuste manual de estoque feito pelo admin — auditoria (quem, quando,

@@ -1,4 +1,4 @@
-using Ecommerce.Domain.Catalogo;
+using Ecommerce.Domain.Estoque;
 using Ecommerce.Infrastructure.Identidade;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -9,7 +9,7 @@ public class ConfiguracaoAjusteDeEstoque : IEntityTypeConfiguration<AjusteDeEsto
 {
     public void Configure(EntityTypeBuilder<AjusteDeEstoque> builder)
     {
-        builder.ToTable("AjustesDeEstoque");
+        builder.ToTable("EST_AjustesDeEstoque");
 
         builder.HasKey(a => a.Id);
 

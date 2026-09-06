@@ -54,3 +54,9 @@ logs/
 # outros
 *.swp
 .claude/
+
+# Arquivos de configuração do editor 
+*.sublime-workspace
+
+# Arquivos de Teste
+tests

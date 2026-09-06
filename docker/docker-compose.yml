@@ -1,8 +1,13 @@
 # Ambiente de desenvolvimento local: API + Oracle XE em container.
 # Rodar a partir da raiz do repositório: docker compose -f docker/docker-compose.yml up
 #
-# Oracle Database ainda NÃO está instalado localmente nesta máquina — este compose não foi
-# testado ainda (ver docs/plano-ecommerce.md, seção 1.2). Validar ao configurar o ambiente.
+# `name:` abaixo é obrigatório: sem ele, o nome do projeto Compose seria implícito (nome da pasta,
+# "docker" — igual pro docker-compose.staging.yml, que vive na mesma pasta), e os dois arquivos
+# passam a competir pelo MESMO serviço "oracle" dentro desse projeto — `docker compose -f
+# docker-compose.yml up oracle` recria/destrói o container que estava rodando via
+# docker-compose.staging.yml (e vice-versa), mesmo com container_name/porta/volume diferentes.
+# Validado na prática em 2026-09-06 (ver plano, achado "compose dev/staging colidindo").
+name: ecommerce-dev
 
 services:
   oracle:
@@ -42,4 +47,9 @@ services:
         condition: service_healthy
 
 volumes:
+  # external: true — volume criado antes do "name:" do projeto existir (ver comentário no topo do
+  # arquivo); sem isso, o Compose tenta gerenciar o volume sob o novo prefixo de projeto e perde a
+  # referência aos dados já gravados no volume antigo.
   oracle-data:
+    name: docker_oracle-data
+    external: true

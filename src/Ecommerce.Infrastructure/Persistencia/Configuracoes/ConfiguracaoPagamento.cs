@@ -8,7 +8,7 @@ public class ConfiguracaoPagamento : IEntityTypeConfiguration<Pagamento>
 {
     public void Configure(EntityTypeBuilder<Pagamento> builder)
     {
-        builder.ToTable("Pagamentos");
+        builder.ToTable("VND_Pagamentos");
 
         builder.HasKey(p => p.Id);
 

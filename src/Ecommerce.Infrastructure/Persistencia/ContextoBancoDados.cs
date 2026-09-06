@@ -1,5 +1,6 @@
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Contas;
+using Ecommerce.Domain.Estoque;
 using Ecommerce.Domain.Identidade;
 using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Identidade;
@@ -43,16 +44,81 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
     {
         base.OnModelCreating(construtorDeModelo);
 
-        // O ASP.NET Core Identity mapeia suas próprias tabelas (AspNetUsers, AspNetRoles, ...) em
-        // inglês por padrão — sobrescreve aqui pra seguir o mesmo padrão do resto do schema
-        // (PascalCase em português, ver ConfiguracaoCategoria e demais em Persistencia/Configuracoes).
-        construtorDeModelo.Entity<Usuario>().ToTable("Usuarios");
-        construtorDeModelo.Entity<IdentityRole<Guid>>().ToTable("Papeis");
-        construtorDeModelo.Entity<IdentityUserRole<Guid>>().ToTable("UsuariosPapeis");
-        construtorDeModelo.Entity<IdentityUserClaim<Guid>>().ToTable("ClaimsDeUsuario");
-        construtorDeModelo.Entity<IdentityRoleClaim<Guid>>().ToTable("ClaimsDePapel");
-        construtorDeModelo.Entity<IdentityUserLogin<Guid>>().ToTable("LoginsDeUsuario");
-        construtorDeModelo.Entity<IdentityUserToken<Guid>>().ToTable("TokensDeUsuario");
+        // O ASP.NET Core Identity mapeia suas próprias tabelas e colunas (AspNetUsers.UserName,
+        // AspNetUserRoles.RoleId, ...) em inglês por padrão — sobrescreve tabela E coluna aqui pra
+        // seguir o mesmo padrão do resto do schema (PascalCase em português, ver ConfiguracaoCategoria
+        // e demais em Persistencia/Configuracoes). Prefixo "IDN_" (Identidade) segue a mesma convenção
+        // de todas as tabelas do schema — ver nota de organização por contexto (CAT_/CTA_/EST_/IDN_/VND_)
+        // no plano do projeto. Só a coluna do banco muda (HasColumnName) — a propriedade C# continua
+        // com o nome original (UserName, Email, ...) porque pertence às classes base do Identity
+        // (IdentityUser<TKey> etc.), que a API do próprio Identity (UserManager, SignInManager, ...)
+        // espera encontrar; "Id" fica como "Id" em todas, igual ao resto do schema.
+        construtorDeModelo.Entity<Usuario>(b =>
+        {
+            b.ToTable("IDN_Usuarios");
+            b.Property(u => u.UserName).HasColumnName("NomeDeUsuario");
+            b.Property(u => u.NormalizedUserName).HasColumnName("NomeDeUsuarioNormalizado");
+            b.Property(u => u.NormalizedEmail).HasColumnName("EmailNormalizado");
+            b.Property(u => u.EmailConfirmed).HasColumnName("EmailConfirmado");
+            b.Property(u => u.PasswordHash).HasColumnName("HashDaSenha");
+            b.Property(u => u.SecurityStamp).HasColumnName("CarimboDeSeguranca");
+            b.Property(u => u.ConcurrencyStamp).HasColumnName("CarimboDeConcorrencia");
+            b.Property(u => u.PhoneNumber).HasColumnName("Telefone");
+            b.Property(u => u.PhoneNumberConfirmed).HasColumnName("TelefoneConfirmado");
+            b.Property(u => u.TwoFactorEnabled).HasColumnName("AutenticacaoDoisFatoresAtiva");
+            b.Property(u => u.LockoutEnd).HasColumnName("BloqueadoAte");
+            b.Property(u => u.LockoutEnabled).HasColumnName("BloqueioAtivo");
+            b.Property(u => u.AccessFailedCount).HasColumnName("TentativasDeAcessoFalhas");
+        });
+
+        construtorDeModelo.Entity<IdentityRole<Guid>>(b =>
+        {
+            b.ToTable("IDN_Papeis");
+            b.Property(r => r.Name).HasColumnName("Nome");
+            b.Property(r => r.NormalizedName).HasColumnName("NomeNormalizado");
+            b.Property(r => r.ConcurrencyStamp).HasColumnName("CarimboDeConcorrencia");
+        });
+
+        construtorDeModelo.Entity<IdentityUserRole<Guid>>(b =>
+        {
+            b.ToTable("IDN_UsuariosPapeis");
+            b.Property(ur => ur.UserId).HasColumnName("UsuarioId");
+            b.Property(ur => ur.RoleId).HasColumnName("PapelId");
+        });
+
+        construtorDeModelo.Entity<IdentityUserClaim<Guid>>(b =>
+        {
+            b.ToTable("IDN_ClaimsDeUsuario");
+            b.Property(c => c.UserId).HasColumnName("UsuarioId");
+            b.Property(c => c.ClaimType).HasColumnName("TipoDeClaim");
+            b.Property(c => c.ClaimValue).HasColumnName("ValorDaClaim");
+        });
+
+        construtorDeModelo.Entity<IdentityRoleClaim<Guid>>(b =>
+        {
+            b.ToTable("IDN_ClaimsDePapel");
+            b.Property(c => c.RoleId).HasColumnName("PapelId");
+            b.Property(c => c.ClaimType).HasColumnName("TipoDeClaim");
+            b.Property(c => c.ClaimValue).HasColumnName("ValorDaClaim");
+        });
+
+        construtorDeModelo.Entity<IdentityUserLogin<Guid>>(b =>
+        {
+            b.ToTable("IDN_LoginsDeUsuario");
+            b.Property(l => l.LoginProvider).HasColumnName("ProvedorDeLogin");
+            b.Property(l => l.ProviderKey).HasColumnName("ChaveDoProvedor");
+            b.Property(l => l.ProviderDisplayName).HasColumnName("NomeDeExibicaoDoProvedor");
+            b.Property(l => l.UserId).HasColumnName("UsuarioId");
+        });
+
+        construtorDeModelo.Entity<IdentityUserToken<Guid>>(b =>
+        {
+            b.ToTable("IDN_TokensDeUsuario");
+            b.Property(t => t.UserId).HasColumnName("UsuarioId");
+            b.Property(t => t.LoginProvider).HasColumnName("ProvedorDeLogin");
+            b.Property(t => t.Name).HasColumnName("Nome");
+            b.Property(t => t.Value).HasColumnName("Valor");
+        });
 
         construtorDeModelo.ApplyConfigurationsFromAssembly(typeof(ContextoBancoDados).Assembly);
     }

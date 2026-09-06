@@ -8,7 +8,7 @@ public class ConfiguracaoItemDoCarrinho : IEntityTypeConfiguration<ItemDoCarrinh
 {
     public void Configure(EntityTypeBuilder<ItemDoCarrinho> builder)
     {
-        builder.ToTable("ItensDoCarrinho");
+        builder.ToTable("VND_ItensDoCarrinho");
 
         builder.HasKey(i => i.Id);
 

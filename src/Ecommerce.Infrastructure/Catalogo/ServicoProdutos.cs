@@ -2,6 +2,7 @@ using Ecommerce.Application.Catalogo;
 using Ecommerce.Application.Comum;
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Comum;
+using Ecommerce.Domain.Estoque;
 using Ecommerce.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 

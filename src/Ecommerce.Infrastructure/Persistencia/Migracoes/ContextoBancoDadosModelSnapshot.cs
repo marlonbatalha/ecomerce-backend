@@ -22,41 +22,6 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
             OracleModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Ecommerce.Domain.Catalogo.AjusteDeEstoque", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("RAW(16)");
-
-                    b.Property<DateTime>("CriadoEmUtc")
-                        .HasColumnType("TIMESTAMP(7)");
-
-                    b.Property<int>("EstoqueAnterior")
-                        .HasColumnType("NUMBER(10)");
-
-                    b.Property<int>("EstoqueNovo")
-                        .HasColumnType("NUMBER(10)");
-
-                    b.Property<string>("Motivo")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("NVARCHAR2(300)");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("RAW(16)");
-
-                    b.Property<Guid>("VarianteDeProdutoId")
-                        .HasColumnType("RAW(16)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.HasIndex("VarianteDeProdutoId");
-
-                    b.ToTable("AjustesDeEstoque", (string)null);
-                });
-
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Categoria", b =>
                 {
                     b.Property<Guid>("Id")
@@ -83,7 +48,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Categorias", (string)null);
+                    b.ToTable("CAT_Categorias", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.ImagemDeProduto", b =>
@@ -107,7 +72,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("ProdutoId");
 
-                    b.ToTable("ImagensDeProduto", (string)null);
+                    b.ToTable("CAT_ImagensDeProduto", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Produto", b =>
@@ -151,7 +116,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("Sku")
                         .IsUnique();
 
-                    b.ToTable("Produtos", (string)null);
+                    b.ToTable("CAT_Produtos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.VarianteDeProduto", b =>
@@ -191,7 +156,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("Sku")
                         .IsUnique();
 
-                    b.ToTable("VariantesDeProduto", (string)null);
+                    b.ToTable("CAT_VariantesDeProduto", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Contas.Endereco", b =>
@@ -249,7 +214,42 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("Enderecos", (string)null);
+                    b.ToTable("CTA_Enderecos", (string)null);
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Estoque.AjusteDeEstoque", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<int>("EstoqueAnterior")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<int>("EstoqueNovo")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("NVARCHAR2(300)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<Guid>("VarianteDeProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("VarianteDeProdutoId");
+
+                    b.ToTable("EST_AjustesDeEstoque", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Identidade.TokenAtualizacao", b =>
@@ -286,7 +286,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("TokensAtualizacao", (string)null);
+                    b.ToTable("IDN_TokensAtualizacao", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Vendas.Carrinho", b =>
@@ -312,7 +312,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .IsUnique()
                         .HasFilter("\"UsuarioId\" IS NOT NULL");
 
-                    b.ToTable("Carrinhos", (string)null);
+                    b.ToTable("VND_Carrinhos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoCarrinho", b =>
@@ -334,7 +334,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("CarrinhoId");
 
-                    b.ToTable("ItensDoCarrinho", (string)null);
+                    b.ToTable("VND_ItensDoCarrinho", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoPedido", b =>
@@ -365,7 +365,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("PedidoId");
 
-                    b.ToTable("ItensDoPedido", (string)null);
+                    b.ToTable("VND_ItensDoPedido", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Vendas.Pagamento", b =>
@@ -401,7 +401,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("ReferenciaExterna")
                         .IsUnique();
 
-                    b.ToTable("Pagamentos", (string)null);
+                    b.ToTable("VND_Pagamentos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Vendas.Pedido", b =>
@@ -429,7 +429,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("Pedidos", (string)null);
+                    b.ToTable("VND_Pedidos", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Infrastructure.Identidade.Usuario", b =>
@@ -439,24 +439,29 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("RAW(16)");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("NUMBER(10)");
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("TentativasDeAcessoFalhas");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("CarimboDeConcorrencia");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("NVARCHAR2(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("NUMBER(1)");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("EmailConfirmado");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("NUMBER(1)");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("BloqueioAtivo");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE");
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("BloqueadoAte");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -464,30 +469,38 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("NVARCHAR2(256)");
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("EmailNormalizado");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("NVARCHAR2(256)");
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("NomeDeUsuarioNormalizado");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("HashDaSenha");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("Telefone");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("NUMBER(1)");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("TelefoneConfirmado");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("CarimboDeSeguranca");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("NUMBER(1)");
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("AutenticacaoDoisFatoresAtiva");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("NVARCHAR2(256)");
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("NomeDeUsuario");
 
                     b.HasKey("Id");
 
@@ -497,9 +510,9 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
-                        .HasFilter("\"NormalizedUserName\" IS NOT NULL");
+                        .HasFilter("\"NomeDeUsuarioNormalizado\" IS NOT NULL");
 
-                    b.ToTable("Usuarios", (string)null);
+                    b.ToTable("IDN_Usuarios", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -510,24 +523,27 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("CarimboDeConcorrencia");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("NVARCHAR2(256)");
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("Nome");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("NVARCHAR2(256)");
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("NomeNormalizado");
 
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("\"NormalizedName\" IS NOT NULL");
+                        .HasFilter("\"NomeNormalizado\" IS NOT NULL");
 
-                    b.ToTable("Papeis", (string)null);
+                    b.ToTable("IDN_Papeis", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -539,19 +555,22 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("TipoDeClaim");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("ValorDaClaim");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("PapelId");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("ClaimsDePapel", (string)null);
+                    b.ToTable("IDN_ClaimsDePapel", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -563,83 +582,87 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     OraclePropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("TipoDeClaim");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("ValorDaClaim");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UsuarioId");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ClaimsDeUsuario", (string)null);
+                    b.ToTable("IDN_ClaimsDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("NVARCHAR2(450)");
+                        .HasColumnType("NVARCHAR2(450)")
+                        .HasColumnName("ProvedorDeLogin");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("NVARCHAR2(450)");
+                        .HasColumnType("NVARCHAR2(450)")
+                        .HasColumnName("ChaveDoProvedor");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("NomeDeExibicaoDoProvedor");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UsuarioId");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("LoginsDeUsuario", (string)null);
+                    b.ToTable("IDN_LoginsDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UsuarioId");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("PapelId");
 
                     b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UsuariosPapeis", (string)null);
+                    b.ToTable("IDN_UsuariosPapeis", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("RAW(16)");
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UsuarioId");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("NVARCHAR2(450)");
+                        .HasColumnType("NVARCHAR2(450)")
+                        .HasColumnName("ProvedorDeLogin");
 
                     b.Property<string>("Name")
-                        .HasColumnType("NVARCHAR2(450)");
+                        .HasColumnType("NVARCHAR2(450)")
+                        .HasColumnName("Nome");
 
                     b.Property<string>("Value")
-                        .HasColumnType("NVARCHAR2(2000)");
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("Valor");
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("TokensDeUsuario", (string)null);
-                });
-
-            modelBuilder.Entity("Ecommerce.Domain.Catalogo.AjusteDeEstoque", b =>
-                {
-                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.ToTable("IDN_TokensDeUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Ecommerce.Domain.Catalogo.Categoria", b =>
@@ -685,6 +708,15 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .WithMany()
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Estoque.AjusteDeEstoque", b =>
+                {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

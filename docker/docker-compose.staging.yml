@@ -3,6 +3,10 @@
 # assim os dois podem rodar ao mesmo tempo na mesma máquina sem misturar dado de dev com dado de
 # homolog.
 #
+# `name:` abaixo é obrigatório pelo mesmo motivo do docker-compose.yml (ver comentário lá): sem um
+# nome de projeto explícito, os dois arquivos compartilham o projeto implícito "docker" (nome da
+# pasta) e colidem no serviço "oracle" em comum — subir um recria/destrói o container do outro.
+#
 # Segredos NUNCA têm default aqui (ao contrário do compose de dev) — exigem um arquivo
 # docker/.env.staging (gitignored, nunca versionar) com:
 #   ORACLE_PASSWORD_STAGING=...
@@ -12,6 +16,7 @@
 #
 # Rodar a partir da raiz do repositório:
 #   docker compose -f docker/docker-compose.staging.yml --env-file docker/.env.staging up
+name: ecommerce-staging
 
 services:
   oracle:
@@ -51,4 +56,9 @@ services:
         condition: service_healthy
 
 volumes:
+  # external: true — volume criado antes do "name:" do projeto existir (ver comentário no topo do
+  # arquivo); sem isso, o Compose tenta gerenciar o volume sob o novo prefixo de projeto e perde a
+  # referência aos dados já gravados no volume antigo.
   oracle-data-staging:
+    name: docker_oracle-data-staging
+    external: true

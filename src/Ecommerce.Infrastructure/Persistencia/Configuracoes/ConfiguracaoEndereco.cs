@@ -9,7 +9,7 @@ public class ConfiguracaoEndereco : IEntityTypeConfiguration<Endereco>
 {
     public void Configure(EntityTypeBuilder<Endereco> builder)
     {
-        builder.ToTable("Enderecos");
+        builder.ToTable("CTA_Enderecos");
 
         builder.HasKey(e => e.Id);
 

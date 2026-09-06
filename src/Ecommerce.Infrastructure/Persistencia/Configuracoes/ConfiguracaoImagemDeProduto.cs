@@ -8,7 +8,7 @@ public class ConfiguracaoImagemDeProduto : IEntityTypeConfiguration<ImagemDeProd
 {
     public void Configure(EntityTypeBuilder<ImagemDeProduto> builder)
     {
-        builder.ToTable("ImagensDeProduto");
+        builder.ToTable("CAT_ImagensDeProduto");
 
         builder.HasKey(i => i.Id);
 

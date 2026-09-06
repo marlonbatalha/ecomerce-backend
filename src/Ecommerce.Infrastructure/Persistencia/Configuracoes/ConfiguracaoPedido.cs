@@ -9,7 +9,7 @@ public class ConfiguracaoPedido : IEntityTypeConfiguration<Pedido>
 {
     public void Configure(EntityTypeBuilder<Pedido> builder)
     {
-        builder.ToTable("Pedidos");
+        builder.ToTable("VND_Pedidos");
 
         builder.HasKey(p => p.Id);
 
