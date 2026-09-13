@@ -16,6 +16,10 @@ public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
             .HasMaxLength(Produto.TamanhoMaximoNome)
             .IsRequired();
 
+        builder.Property(p => p.Slug)
+            .HasMaxLength(Produto.TamanhoMaximoNome)
+            .IsRequired();
+
         builder.Property(p => p.Descricao)
             .HasMaxLength(Produto.TamanhoMaximoDescricao);
 
@@ -26,6 +30,8 @@ public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
         builder.Property(p => p.Preco).HasPrecision(18, 2);
 
         builder.HasIndex(p => p.Sku).IsUnique();
+
+        builder.HasIndex(p => p.Slug).IsUnique();
 
         builder.HasIndex(p => p.CategoriaId);
 

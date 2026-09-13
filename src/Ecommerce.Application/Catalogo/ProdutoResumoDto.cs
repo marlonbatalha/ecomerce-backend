@@ -4,6 +4,7 @@ namespace Ecommerce.Application.Catalogo;
 public record ProdutoResumoDto(
     Guid Id,
     string Nome,
+    string Slug,
     string Sku,
     decimal Preco,
     Guid CategoriaId,

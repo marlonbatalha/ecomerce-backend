@@ -20,6 +20,14 @@ public class Produto : Entidade
 
     public string Nome { get; private set; } = null!;
 
+    /// <summary>
+    /// Identificador amigável de URL (ex.: <c>/produtos/{slug}</c> no frontend) — gerado a partir do
+    /// nome na criação (ver <see cref="GeradorDeSlug"/>) e **não muda** em <see cref="AtualizarDados"/>,
+    /// diferente de <see cref="Categoria"/>: um produto já publicado pode ter link/SEO apontando pro
+    /// slug atual, e mudar nome não deveria quebrar isso.
+    /// </summary>
+    public string Slug { get; private set; } = null!;
+
     public string Descricao { get; private set; } = string.Empty;
 
     public string Sku { get; private set; } = null!;
@@ -43,10 +51,11 @@ public class Produto : Entidade
     {
     }
 
-    private Produto(Guid id, string nome, string descricao, string sku, decimal preco, Guid categoriaId)
+    private Produto(Guid id, string nome, string slug, string descricao, string sku, decimal preco, Guid categoriaId)
         : base(id)
     {
         Nome = nome;
+        Slug = slug;
         Descricao = descricao;
         Sku = sku;
         Preco = preco;
@@ -65,7 +74,10 @@ public class Produto : Entidade
         GarantirSkuValido(sku);
         GarantirPrecoValido(preco);
 
-        return new Produto(Guid.NewGuid(), nome.Trim(), (descricao ?? string.Empty).Trim(), NormalizarSku(sku), preco, categoriaId);
+        var nomeNormalizado = nome.Trim();
+        return new Produto(
+            Guid.NewGuid(), nomeNormalizado, GeradorDeSlug.Gerar(nomeNormalizado),
+            (descricao ?? string.Empty).Trim(), NormalizarSku(sku), preco, categoriaId);
     }
 
     public void AtualizarDados(string nome, string descricao, decimal preco)

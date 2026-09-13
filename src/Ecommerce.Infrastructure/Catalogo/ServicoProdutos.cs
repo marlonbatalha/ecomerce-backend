@@ -8,8 +8,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ecommerce.Infrastructure.Catalogo;
 
-public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
+public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagens armazenamentoDeImagens) : IServicoProdutos
 {
+    /// <summary>Tipo MIME -> extensão de arquivo. Só esses são aceitos como imagem de produto.</summary>
+    private static readonly Dictionary<string, string> TiposDeImagemAceitos = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["image/jpeg"] = ".jpg",
+        ["image/png"] = ".png",
+        ["image/webp"] = ".webp",
+    };
+
+
     public async Task<ProdutoDto> CriarAsync(CriarProdutoComando comando, CancellationToken ct = default)
     {
         var categoriaExiste = await contexto.Categorias.AnyAsync(c => c.Id == comando.CategoriaId, ct);
@@ -69,6 +78,25 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
         return MapearParaDto(produto);
     }
 
+    public async Task<ProdutoDto> AdicionarImagemAsync(Guid produtoId, Stream conteudo, string tipoConteudo, CancellationToken ct = default)
+    {
+        if (!TiposDeImagemAceitos.TryGetValue(tipoConteudo, out var extensao))
+        {
+            throw new ExcecaoDeDominio("Tipo de imagem não suportado — envie JPEG, PNG ou WebP.");
+        }
+
+        var produto = await ObterAgregadoOuFalharAsync(produtoId, ct);
+        var url = await armazenamentoDeImagens.SalvarAsync(conteudo, extensao, ct);
+
+        var imagem = produto.AdicionarImagem(url);
+        // Mesmo caso da variante acima: entidade nova numa coleção mapeada com
+        // PropertyAccessMode.Field precisa de Add explícito.
+        contexto.Add(imagem);
+        await contexto.SaveChangesAsync(ct);
+
+        return MapearParaDto(produto);
+    }
+
     public async Task<ProdutoDto> AjustarEstoqueAsync(AjustarEstoqueComando comando, CancellationToken ct = default)
     {
         var produto = await ObterAgregadoOuFalharAsync(comando.ProdutoId, ct);
@@ -113,6 +141,17 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
             .Include(p => p.Variantes)
             .Include(p => p.Imagens)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
+
+        return produto is null ? null : MapearParaDto(produto);
+    }
+
+    public async Task<ProdutoDto?> ObterPorSlugAsync(string slug, CancellationToken ct = default)
+    {
+        var produto = await contexto.Produtos
+            .AsNoTracking()
+            .Include(p => p.Variantes)
+            .Include(p => p.Imagens)
+            .FirstOrDefaultAsync(p => p.Slug == slug, ct);
 
         return produto is null ? null : MapearParaDto(produto);
     }
@@ -209,6 +248,7 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
     private static ProdutoDto MapearParaDto(Produto produto) => new(
         produto.Id,
         produto.Nome,
+        produto.Slug,
         produto.Descricao,
         produto.Sku,
         produto.Preco,
@@ -220,6 +260,7 @@ public class ServicoProdutos(ContextoBancoDados contexto) : IServicoProdutos
     private static ProdutoResumoDto MapearParaResumoDto(Produto produto) => new(
         produto.Id,
         produto.Nome,
+        produto.Slug,
         produto.Sku,
         produto.Preco,
         produto.CategoriaId,

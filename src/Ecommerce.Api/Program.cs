@@ -9,6 +9,7 @@ using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Identidade;
 using FluentValidation;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.FileProviders;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -143,6 +144,20 @@ try
     }
 
     app.UseHttpsRedirection();
+
+    // Serve wwwroot/uploads/produtos (ver ArmazenamentoDeImagensLocal) — imagem é buscada direto
+    // pelo browser via <img>/next-image, não passa por autenticação nem CORS (carregamento de
+    // imagem via tag <img> não é sujeito a CORS). FileProvider explícito (em vez de
+    // env.WebRootFileProvider, o default de UseStaticFiles()) porque wwwroot/ pode não existir
+    // ainda no boot (só é criada no primeiro upload) — o provider default resolve pra
+    // NullFileProvider nesse caso e nunca passa a servir nada depois, mesmo com a pasta criada
+    // em runtime.
+    var caminhoWwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+    Directory.CreateDirectory(caminhoWwwroot); // PhysicalFileProvider exige que a pasta já exista.
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(caminhoWwwroot),
+    });
 
     app.UseCors(politicaCors);
 

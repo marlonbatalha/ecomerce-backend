@@ -50,6 +50,7 @@ public static class InjecaoDeDependencia
         servicos.AddScoped<IServicoAutenticacao, ServicoAutenticacao>();
         servicos.AddScoped<IServicoCategorias, ServicoCategorias>();
         servicos.AddScoped<IServicoProdutos, ServicoProdutos>();
+        servicos.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
         servicos.AddScoped<IServicoCarrinho, ServicoCarrinho>();
         servicos.AddScoped<IServicoDePedidos, ServicoDePedidos>();
         servicos.AddScoped<IServicoDePagamento, ServicoDePagamentoFake>();

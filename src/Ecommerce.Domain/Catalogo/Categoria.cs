@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 using Ecommerce.Domain.Comum;
 
 namespace Ecommerce.Domain.Catalogo;
@@ -35,7 +32,7 @@ public class Categoria : Entidade
         : base(id)
     {
         Nome = nome;
-        Slug = GerarSlug(nome);
+        Slug = GeradorDeSlug.Gerar(nome);
         CategoriaPaiId = categoriaPaiId;
     }
 
@@ -51,7 +48,7 @@ public class Categoria : Entidade
         GarantirNomeValido(novoNome);
 
         Nome = novoNome.Trim();
-        Slug = GerarSlug(novoNome);
+        Slug = GeradorDeSlug.Gerar(novoNome);
     }
 
     /// <summary>
@@ -79,27 +76,5 @@ public class Categoria : Entidade
         {
             throw new ExcecaoDeDominio($"O nome da categoria não pode ter mais de {TamanhoMaximoNome} caracteres.");
         }
-    }
-
-    private static string GerarSlug(string nome)
-    {
-        var semAcentos = RemoverAcentos(nome.Trim().ToLowerInvariant());
-        return Regex.Replace(semAcentos, "[^a-z0-9]+", "-").Trim('-');
-    }
-
-    private static string RemoverAcentos(string texto)
-    {
-        var normalizado = texto.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(normalizado.Length);
-
-        foreach (var c in normalizado)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(c);
-            }
-        }
-
-        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

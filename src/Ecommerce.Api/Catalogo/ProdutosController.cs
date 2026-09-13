@@ -32,11 +32,39 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
         return Ok(await servicoProdutos.BuscarAsync(consulta, ct));
     }
 
+    /// <summary>
+    /// Admin: busca sem o filtro de "disponível" (inclui produto inativo e sem variante em
+    /// estoque) — a busca pública (<see cref="Buscar"/>) esconde exatamente isso, então o admin
+    /// não teria como ver/gerenciar um produto recém-criado antes dele ganhar uma variante.
+    /// </summary>
+    [HttpGet("admin")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<ResultadoPaginado<ProdutoResumoDto>>> BuscarAdmin(
+        [FromQuery] Guid? categoriaId,
+        [FromQuery] string? termo,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanhoPagina = 20,
+        CancellationToken ct = default)
+    {
+        var consulta = new BuscarProdutosConsulta(
+            categoriaId, null, null, termo, ApenasDisponiveis: false, OrdenacaoProduto.MaisRecente, pagina, tamanhoPagina);
+
+        return Ok(await servicoProdutos.BuscarAsync(consulta, ct));
+    }
+
     /// <summary>Detalhe por id — público (não filtra por ativo: um link direto continua funcionando mesmo pra produto descontinuado).</summary>
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ProdutoDto>> ObterPorId(Guid id, CancellationToken ct)
     {
         var produto = await servicoProdutos.ObterPorIdAsync(id, ct);
+        return produto is null ? NotFound() : Ok(produto);
+    }
+
+    /// <summary>Detalhe por slug — público (usado pelo frontend, que roteia produto por slug em vez de id).</summary>
+    [HttpGet("por-slug/{slug}")]
+    public async Task<ActionResult<ProdutoDto>> ObterPorSlug(string slug, CancellationToken ct)
+    {
+        var produto = await servicoProdutos.ObterPorSlugAsync(slug, ct);
         return produto is null ? NotFound() : Ok(produto);
     }
 
@@ -71,6 +99,18 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
     {
         var produto = await servicoProdutos.AdicionarVarianteAsync(
             new AdicionarVarianteComando(id, requisicao.Nome, requisicao.Sku, requisicao.Preco, requisicao.Estoque), ct);
+
+        return Ok(produto);
+    }
+
+    /// <summary>Envia a imagem principal/adicional do produto — JPEG/PNG/WebP, até 5 MB.</summary>
+    [HttpPost("{id:guid}/imagens")]
+    [Authorize(Roles = Papeis.Admin)]
+    [RequestSizeLimit(5_000_000)]
+    public async Task<ActionResult<ProdutoDto>> AdicionarImagem(Guid id, IFormFile arquivo, CancellationToken ct)
+    {
+        await using var conteudo = arquivo.OpenReadStream();
+        var produto = await servicoProdutos.AdicionarImagemAsync(id, conteudo, arquivo.ContentType, ct);
 
         return Ok(produto);
     }

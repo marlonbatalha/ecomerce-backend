@@ -20,6 +20,10 @@ public interface IServicoProdutos
 
     Task<ProdutoDto> AdicionarVarianteAsync(AdicionarVarianteComando comando, CancellationToken ct = default);
 
+    /// <summary>Salva a imagem (via <see cref="IArmazenamentoDeImagens"/>) e associa ao produto. Só
+    /// JPEG/PNG/WebP são aceitos — outro tipo lança <see cref="Ecommerce.Domain.Comum.ExcecaoDeDominio"/>.</summary>
+    Task<ProdutoDto> AdicionarImagemAsync(Guid produtoId, Stream conteudo, string tipoConteudo, CancellationToken ct = default);
+
     Task<ProdutoDto> AjustarEstoqueAsync(AjustarEstoqueComando comando, CancellationToken ct = default);
 
     Task<ProdutoDto> InativarVarianteAsync(InativarVarianteComando comando, CancellationToken ct = default);
@@ -27,6 +31,9 @@ public interface IServicoProdutos
     Task<ProdutoDto> AtivarVarianteAsync(AtivarVarianteComando comando, CancellationToken ct = default);
 
     Task<ProdutoDto?> ObterPorIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Detalhe por slug — usado pelo frontend, que roteia produto por slug em vez de id.</summary>
+    Task<ProdutoDto?> ObterPorSlugAsync(string slug, CancellationToken ct = default);
 
     /// <summary>Listagem paginada/filtrada — usada tanto na busca pública quanto no admin.</summary>
     Task<ResultadoPaginado<ProdutoResumoDto>> BuscarAsync(BuscarProdutosConsulta consulta, CancellationToken ct = default);
