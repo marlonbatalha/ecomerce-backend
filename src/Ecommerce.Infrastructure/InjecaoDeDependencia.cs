@@ -3,11 +3,13 @@ using System.Text;
 using Ecommerce.Application.Autenticacao;
 using Ecommerce.Application.Catalogo;
 using Ecommerce.Application.Contas;
+using Ecommerce.Application.Notificacoes;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Infrastructure.Autenticacao;
 using Ecommerce.Infrastructure.Catalogo;
 using Ecommerce.Infrastructure.Contas;
 using Ecommerce.Infrastructure.Identidade;
+using Ecommerce.Infrastructure.Notificacoes;
 using Ecommerce.Infrastructure.Persistencia;
 using Ecommerce.Infrastructure.Vendas;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -46,14 +48,17 @@ public static class InjecaoDeDependencia
 
         AdicionarIdentidadeEJwt(servicos, configuracao);
         AdicionarOpcoesWebhook(servicos, configuracao);
+        servicos.Configure<OpcoesAplicacao>(configuracao.GetSection(OpcoesAplicacao.SecaoConfiguracao));
+        AdicionarArmazenamentoDeImagens(servicos, configuracao);
+        AdicionarPagamentos(servicos, configuracao);
+        AdicionarEmails(servicos, configuracao);
 
         servicos.AddScoped<IServicoAutenticacao, ServicoAutenticacao>();
         servicos.AddScoped<IServicoCategorias, ServicoCategorias>();
         servicos.AddScoped<IServicoProdutos, ServicoProdutos>();
-        servicos.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
         servicos.AddScoped<IServicoCarrinho, ServicoCarrinho>();
         servicos.AddScoped<IServicoDePedidos, ServicoDePedidos>();
-        servicos.AddScoped<IServicoDePagamento, ServicoDePagamentoFake>();
+        servicos.AddScoped<IServicoCupons, ServicoCupons>();
         servicos.AddScoped<IServicoDeFrete, ServicoDeFreteFake>();
         servicos.AddScoped<IServicoEnderecos, ServicoEnderecos>();
         servicos.AddScoped<IServicoConta, ServicoConta>();
@@ -116,6 +121,69 @@ public static class InjecaoDeDependencia
             });
 
         servicos.AddAuthorization();
+    }
+
+    /// <summary>Disco local (dev) ou Object Storage S3-compatível, por <c>Storage:Provedor</c>.</summary>
+    private static void AdicionarArmazenamentoDeImagens(IServiceCollection servicos, IConfiguration configuracao)
+    {
+        var secao = configuracao.GetSection(OpcoesArmazenamento.SecaoConfiguracao);
+        servicos.Configure<OpcoesArmazenamento>(secao);
+
+        var provedor = secao.Get<OpcoesArmazenamento>()?.Provedor ?? OpcoesArmazenamento.ProvedorLocal;
+        if (string.Equals(provedor, OpcoesArmazenamento.ProvedorS3, StringComparison.OrdinalIgnoreCase))
+        {
+            // Singleton: o AmazonS3Client é thread-safe e caro de criar (pool de conexões próprio).
+            servicos.AddSingleton<IArmazenamentoDeImagens, ArmazenamentoDeImagensS3>();
+        }
+        else
+        {
+            servicos.AddScoped<IArmazenamentoDeImagens, ArmazenamentoDeImagensLocal>();
+        }
+    }
+
+    /// <summary>Gateway fake (dev/testes) ou Mercado Pago, por <c>Pagamentos:Provedor</c>.</summary>
+    private static void AdicionarPagamentos(IServiceCollection servicos, IConfiguration configuracao)
+    {
+        var secao = configuracao.GetSection(OpcoesPagamentos.SecaoConfiguracao);
+        servicos.Configure<OpcoesPagamentos>(secao);
+
+        var provedor = secao.Get<OpcoesPagamentos>()?.Provedor ?? OpcoesPagamentos.ProvedorFake;
+        if (string.Equals(provedor, OpcoesPagamentos.ProvedorMercadoPago, StringComparison.OrdinalIgnoreCase))
+        {
+            servicos.AddHttpClient<IServicoDePagamento, ServicoDePagamentoMercadoPago>(cliente =>
+            {
+                cliente.BaseAddress = new Uri(ServicoDePagamentoMercadoPago.UrlBase);
+                cliente.Timeout = TimeSpan.FromSeconds(15);
+            });
+        }
+        else
+        {
+            servicos.AddScoped<IServicoDePagamento, ServicoDePagamentoFake>();
+        }
+    }
+
+    /// <summary>
+    /// E-mails transacionais: montados por <see cref="ServicoDeNotificacoesPorEmail"/>, enfileirados
+    /// em memória e enviados em segundo plano (SMTP ou só log, por <c>Email:Provedor</c>).
+    /// </summary>
+    private static void AdicionarEmails(IServiceCollection servicos, IConfiguration configuracao)
+    {
+        var secao = configuracao.GetSection(OpcoesEmail.SecaoConfiguracao);
+        servicos.Configure<OpcoesEmail>(secao);
+
+        servicos.AddSingleton<FilaDeEmails>();
+        servicos.AddHostedService<ProcessadorDeFilaDeEmails>();
+        servicos.AddScoped<IServicoDeNotificacoes, ServicoDeNotificacoesPorEmail>();
+
+        var provedor = secao.Get<OpcoesEmail>()?.Provedor ?? OpcoesEmail.ProvedorLog;
+        if (string.Equals(provedor, OpcoesEmail.ProvedorSmtp, StringComparison.OrdinalIgnoreCase))
+        {
+            servicos.AddScoped<IEnviadorDeEmail, EnviadorDeEmailSmtp>();
+        }
+        else
+        {
+            servicos.AddScoped<IEnviadorDeEmail, EnviadorDeEmailLog>();
+        }
     }
 
     private static void AdicionarOpcoesWebhook(IServiceCollection servicos, IConfiguration configuracao)

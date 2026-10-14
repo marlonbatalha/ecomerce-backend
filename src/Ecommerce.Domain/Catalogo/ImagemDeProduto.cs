@@ -44,4 +44,7 @@ public class ImagemDeProduto : Entidade
 
         return new ImagemDeProduto(Guid.NewGuid(), produtoId, url.Trim(), ordem);
     }
+
+    /// <summary>Só via <see cref="Produto.RemoverImagem"/>/<see cref="Produto.ReordenarImagens"/>, que garantem ordens contíguas.</summary>
+    internal void DefinirOrdem(int ordem) => Ordem = ordem;
 }

@@ -1,14 +1,20 @@
 using Ecommerce.Application.Comum;
+using Ecommerce.Application.Notificacoes;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Domain.Catalogo;
 using Ecommerce.Domain.Comum;
 using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Ecommerce.Infrastructure.Vendas;
 
-public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento servicoDePagamento) : IServicoDePedidos
+public class ServicoDePedidos(
+    ContextoBancoDados contexto,
+    IServicoDePagamento servicoDePagamento,
+    IServicoDeNotificacoes notificacoes,
+    ILogger<ServicoDePedidos> logger) : IServicoDePedidos
 {
     public async Task<CheckoutResultado> FinalizarCompraAsync(FinalizarCompraComando comando, CancellationToken ct = default)
     {
@@ -60,7 +66,40 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
         }
 
         var pedido = Pedido.Criar(comando.UsuarioId, rascunhos);
+
+        if (!string.IsNullOrWhiteSpace(comando.CodigoCupom))
+        {
+            var codigo = Cupom.NormalizarCodigo(comando.CodigoCupom);
+            var cupom = await contexto.Cupons.FirstOrDefaultAsync(c => c.Codigo == codigo, ct)
+                ?? throw new ExcecaoDeDominio("Cupom não encontrado.");
+
+            var desconto = cupom.CalcularDesconto(pedido.Subtotal, DateTime.UtcNow);
+            pedido.AplicarDesconto(cupom.Codigo, desconto);
+            cupom.RegistrarUso();
+        }
+
         contexto.Add(pedido);
+
+        // Cobrança é criada no gateway ANTES de gravar qualquer coisa: se o gateway falhar, nada
+        // foi persistido (estoque, cupom e carrinho intactos). O inverso — gateway ok e o
+        // SaveChanges falhar — deixa só uma cobrança órfã no gateway que ninguém recebeu o link.
+        string? referenciaPagamento = null;
+        string? urlPagamento = null;
+        if (pedido.Total > 0)
+        {
+            var email = await contexto.Users.Where(u => u.Id == comando.UsuarioId).Select(u => u.Email).FirstOrDefaultAsync(ct);
+            var cobranca = await servicoDePagamento.IniciarCobrancaAsync(
+                new SolicitacaoDeCobranca(pedido.Id, pedido.Total, $"Pedido #{FormatarNumero(pedido.Id)}", email), ct);
+
+            referenciaPagamento = cobranca.ReferenciaExterna;
+            urlPagamento = cobranca.UrlPagamento;
+            contexto.Add(Pagamento.Criar(pedido.Id, cobranca.ReferenciaExterna, pedido.Total, cobranca.UrlPagamento));
+        }
+        else
+        {
+            // Cupom cobriu 100% — não há o que cobrar.
+            pedido.ConfirmarPagamento();
+        }
 
         var itensRemovidos = carrinho.Esvaziar();
         contexto.RemoveRange(itensRemovidos);
@@ -71,23 +110,25 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
         }
         catch (DbUpdateConcurrencyException)
         {
-            // VarianteDeProduto.Estoque é ConcurrencyToken — outro checkout debitou a mesma
-            // variante entre a leitura e o SaveChanges. Falha alto e claro em vez de overselling.
-            throw new ExcecaoDeDominio("O estoque de um ou mais itens mudou durante o checkout — atualize o carrinho e tente de novo.");
+            // VarianteDeProduto.Estoque e Cupom.QuantidadeDeUsos são ConcurrencyToken — outro
+            // checkout mexeu neles entre a leitura e o SaveChanges. Falha alto e claro em vez de
+            // overselling (ou de estourar o limite do cupom).
+            throw new ExcecaoDeDominio("O estoque ou o cupom mudou durante o checkout — atualize o carrinho e tente de novo.");
         }
 
-        var referenciaPagamento = await servicoDePagamento.IniciarCobrancaAsync(pedido.Id, pedido.Total, ct);
-        var pagamento = Pagamento.Criar(pedido.Id, referenciaPagamento, pedido.Total);
-        contexto.Add(pagamento);
-        await contexto.SaveChangesAsync(ct);
+        await notificacoes.PedidoRecebidoAsync(pedido.Id, ct);
+        if (pedido.Status == StatusPedido.PagamentoConfirmado)
+        {
+            await notificacoes.PagamentoConfirmadoAsync(pedido.Id, ct);
+        }
 
-        return new CheckoutResultado(MapearParaDto(pedido), referenciaPagamento);
+        return new CheckoutResultado(MapearParaDto(pedido, urlPagamento), referenciaPagamento, urlPagamento);
     }
 
     public async Task<PedidoDto?> ObterDoUsuarioAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default)
     {
         var pedido = await contexto.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
-        return pedido is null || pedido.UsuarioId != usuarioId ? null : MapearParaDto(pedido);
+        return pedido is null || pedido.UsuarioId != usuarioId ? null : MapearParaDto(pedido, await ObterUrlPagamentoAsync(pedido, ct));
     }
 
     public async Task<IReadOnlyCollection<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, CancellationToken ct = default)
@@ -125,7 +166,7 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
     public async Task<PedidoDto?> ObterPorIdAsync(Guid pedidoId, CancellationToken ct = default)
     {
         var pedido = await contexto.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
-        return pedido is null ? null : MapearParaDto(pedido);
+        return pedido is null ? null : MapearParaDto(pedido, await ObterUrlPagamentoAsync(pedido, ct));
     }
 
     public async Task<PedidoDto> CancelarAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default)
@@ -137,7 +178,10 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
         }
 
         pedido.Cancelar();
+        await DevolverEstoqueAsync(pedido, ct);
         await contexto.SaveChangesAsync(ct);
+
+        await notificacoes.PedidoCanceladoAsync(pedido.Id, ct);
         return MapearParaDto(pedido);
     }
 
@@ -146,6 +190,8 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
         var pedido = await ObterAgregadoOuFalharAsync(pedidoId, ct);
         pedido.MarcarComoEnviado(codigoRastreio);
         await contexto.SaveChangesAsync(ct);
+
+        await notificacoes.PedidoEnviadoAsync(pedido.Id, ct);
         return MapearParaDto(pedido);
     }
 
@@ -162,46 +208,130 @@ public class ServicoDePedidos(ContextoBancoDados contexto, IServicoDePagamento s
         var pagamento = await contexto.Pagamentos.FirstOrDefaultAsync(p => p.ReferenciaExterna == referenciaExterna, ct)
             ?? throw new ExcecaoDeDominio("Pagamento não encontrado para essa referência.");
 
-        var pedido = await contexto.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pagamento.PedidoId, ct)
-            ?? throw new ExcecaoDeDominio("Pedido do pagamento não encontrado.");
+        await AplicarResultadoAsync(pagamento, aprovado ? ResultadoDePagamento.Aprovado : ResultadoDePagamento.Recusado, ct);
+    }
 
-        if (aprovado)
+    public async Task ProcessarPagamentoDoGatewayAsync(PagamentoConsultado pagamentoConsultado, CancellationToken ct = default)
+    {
+        var pagamento = await contexto.Pagamentos
+            .Where(p => p.PedidoId == pagamentoConsultado.PedidoId)
+            .OrderByDescending(p => p.CriadoEmUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (pagamento is null)
         {
-            pagamento.Aprovar();
-
-            // Idempotente: se o webhook reenviar o mesmo evento e o pedido já tiver saído de
-            // Pendente, não tenta transicionar de novo (Pedido.ConfirmarPagamento lançaria, já
-            // que só Pendente -> PagamentoConfirmado é uma transição válida).
-            if (pedido.Status == StatusPedido.Pendente)
-            {
-                pedido.ConfirmarPagamento();
-            }
+            // external_reference de um pedido que não existe aqui (ex.: conta do gateway
+            // compartilhada com outro ambiente) — nada a fazer, e não é erro do gateway.
+            logger.LogWarning("Notificação de pagamento para pedido desconhecido {PedidoId}", pagamentoConsultado.PedidoId);
+            return;
         }
-        else
-        {
-            pagamento.Recusar();
 
-            if (pedido.Status == StatusPedido.Pendente)
-            {
-                pedido.RecusarPagamento();
-            }
+        pagamento.RegistrarTransacao(pagamentoConsultado.IdTransacao);
+        await AplicarResultadoAsync(pagamento, pagamentoConsultado.Resultado, ct);
+    }
+
+    /// <summary>
+    /// Idempotente: o gateway pode reenviar o mesmo evento, então cada ramo só transiciona o pedido
+    /// se ele ainda estiver no status de origem esperado.
+    /// </summary>
+    private async Task AplicarResultadoAsync(Pagamento pagamento, ResultadoDePagamento resultado, CancellationToken ct)
+    {
+        var pedido = await ObterAgregadoOuFalharAsync(pagamento.PedidoId, ct);
+        var pagamentoConfirmadoAgora = false;
+
+        switch (resultado)
+        {
+            case ResultadoDePagamento.Aprovado:
+                pagamento.Aprovar();
+                if (pedido.Status == StatusPedido.Pendente)
+                {
+                    pedido.ConfirmarPagamento();
+                    pagamentoConfirmadoAgora = true;
+                }
+
+                break;
+
+            case ResultadoDePagamento.Recusado:
+                pagamento.Recusar();
+                if (pedido.Status == StatusPedido.Pendente)
+                {
+                    pedido.RecusarPagamento();
+                    await DevolverEstoqueAsync(pedido, ct);
+                }
+
+                break;
+
+            case ResultadoDePagamento.Estornado:
+                if (pagamento.Status is StatusPagamento.Aprovado or StatusPagamento.Estornado)
+                {
+                    pagamento.Estornar();
+                }
+
+                if (pedido.Status is StatusPedido.PagamentoConfirmado or StatusPedido.Enviado or StatusPedido.Entregue)
+                {
+                    pedido.Reembolsar();
+                }
+
+                break;
+
+            case ResultadoDePagamento.Pendente:
+                break;
         }
 
         await contexto.SaveChangesAsync(ct);
+
+        if (pagamentoConfirmadoAgora)
+        {
+            await notificacoes.PagamentoConfirmadoAsync(pedido.Id, ct);
+        }
+    }
+
+    /// <summary>Pedido que não vai mais ser pago/enviado libera o estoque reservado no checkout.</summary>
+    private async Task DevolverEstoqueAsync(Pedido pedido, CancellationToken ct)
+    {
+        var varianteIds = pedido.Itens.Select(i => i.VarianteDeProdutoId).ToList();
+        var variantes = await contexto.Set<VarianteDeProduto>().Where(v => varianteIds.Contains(v.Id)).ToListAsync(ct);
+
+        foreach (var item in pedido.Itens)
+        {
+            var variante = variantes.FirstOrDefault(v => v.Id == item.VarianteDeProdutoId);
+            variante?.AjustarEstoque(variante.Estoque + item.Quantidade);
+        }
+    }
+
+    private async Task<string?> ObterUrlPagamentoAsync(Pedido pedido, CancellationToken ct)
+    {
+        if (pedido.Status != StatusPedido.Pendente)
+        {
+            return null;
+        }
+
+        return await contexto.Pagamentos.AsNoTracking()
+            .Where(p => p.PedidoId == pedido.Id)
+            .OrderByDescending(p => p.CriadoEmUtc)
+            .Select(p => p.UrlPagamento)
+            .FirstOrDefaultAsync(ct);
     }
 
     private async Task<Pedido> ObterAgregadoOuFalharAsync(Guid pedidoId, CancellationToken ct) =>
         await contexto.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct)
             ?? throw new ExcecaoDeDominio("Pedido não encontrado.");
 
+    /// <summary>Número curto exibido ao cliente (8 primeiros hex do Guid, em maiúsculas).</summary>
+    internal static string FormatarNumero(Guid pedidoId) => pedidoId.ToString("N")[..8].ToUpperInvariant();
+
     private static PedidoResumoDto MapearParaResumoDto(Pedido pedido) =>
         new(pedido.Id, pedido.UsuarioId, pedido.Status, pedido.CriadoEmUtc, pedido.Total, pedido.Itens.Count);
 
-    private static PedidoDto MapearParaDto(Pedido pedido) => new(
+    private static PedidoDto MapearParaDto(Pedido pedido, string? urlPagamento = null) => new(
         pedido.Id,
         pedido.Status,
         pedido.CriadoEmUtc,
         pedido.CodigoRastreio,
+        pedido.Subtotal,
+        pedido.Desconto,
+        pedido.CodigoCupom,
         pedido.Total,
-        pedido.Itens.Select(i => new ItemPedidoDto(i.VarianteDeProdutoId, i.NomeProduto, i.PrecoUnitario, i.Quantidade, i.Subtotal)).ToList());
+        pedido.Itens.Select(i => new ItemPedidoDto(i.VarianteDeProdutoId, i.NomeProduto, i.PrecoUnitario, i.Quantidade, i.Subtotal)).ToList(),
+        pedido.Status == StatusPedido.Pendente ? urlPagamento : null);
 }

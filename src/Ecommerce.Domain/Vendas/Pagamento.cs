@@ -3,19 +3,28 @@ using Ecommerce.Domain.Comum;
 namespace Ecommerce.Domain.Vendas;
 
 /// <summary>
-/// Registro de uma cobrança junto ao gateway de pagamento (ainda não decidido — ver seção 9 do
-/// plano; por ora atrás de <c>IServicoDePagamento</c>, com implementação fake). Guarda só a
-/// referência externa e o status — nunca dado de cartão (isso fica 100% no gateway).
-/// <see cref="Aprovar"/>/<see cref="Recusar"/>/<see cref="Estornar"/> são idempotentes: reaplicar
-/// o mesmo resultado não lança erro (o gateway pode reenviar o mesmo evento de webhook).
+/// Registro de uma cobrança junto ao gateway de pagamento (Mercado Pago — ou o fake em dev, ver
+/// <c>IServicoDePagamento</c>). Guarda só referências externas e o status — nunca dado de cartão
+/// (isso fica 100% no gateway). <see cref="Aprovar"/>/<see cref="Recusar"/>/<see cref="Estornar"/>
+/// são idempotentes: reaplicar o mesmo resultado não lança erro (o gateway pode reenviar o mesmo
+/// evento de webhook).
 /// </summary>
 public class Pagamento : Entidade
 {
     public const int TamanhoMaximoReferenciaExterna = 200;
 
+    public const int TamanhoMaximoUrlPagamento = 1000;
+
     public Guid PedidoId { get; private set; }
 
+    /// <summary>Id da cobrança no gateway (no Mercado Pago, o id da "preference" do Checkout Pro).</summary>
     public string ReferenciaExterna { get; private set; } = null!;
+
+    /// <summary>Página do gateway onde o cliente paga — null quando o gateway não tem uma (fake).</summary>
+    public string? UrlPagamento { get; private set; }
+
+    /// <summary>Id do pagamento efetivo no gateway — só conhecido quando o webhook chega.</summary>
+    public string? IdTransacao { get; private set; }
 
     public decimal Valor { get; private set; }
 
@@ -27,17 +36,18 @@ public class Pagamento : Entidade
     {
     }
 
-    private Pagamento(Guid id, Guid pedidoId, string referenciaExterna, decimal valor)
+    private Pagamento(Guid id, Guid pedidoId, string referenciaExterna, string? urlPagamento, decimal valor)
         : base(id)
     {
         PedidoId = pedidoId;
         ReferenciaExterna = referenciaExterna;
+        UrlPagamento = urlPagamento;
         Valor = valor;
         Status = StatusPagamento.Pendente;
         CriadoEmUtc = DateTime.UtcNow;
     }
 
-    public static Pagamento Criar(Guid pedidoId, string referenciaExterna, decimal valor)
+    public static Pagamento Criar(Guid pedidoId, string referenciaExterna, decimal valor, string? urlPagamento = null)
     {
         if (string.IsNullOrWhiteSpace(referenciaExterna))
         {
@@ -49,7 +59,20 @@ public class Pagamento : Entidade
             throw new ExcecaoDeDominio("O valor do pagamento precisa ser maior que zero.");
         }
 
-        return new Pagamento(Guid.NewGuid(), pedidoId, referenciaExterna.Trim(), valor);
+        if (urlPagamento is { Length: > TamanhoMaximoUrlPagamento })
+        {
+            throw new ExcecaoDeDominio($"A URL de pagamento não pode ter mais de {TamanhoMaximoUrlPagamento} caracteres.");
+        }
+
+        return new Pagamento(Guid.NewGuid(), pedidoId, referenciaExterna.Trim(), urlPagamento, valor);
+    }
+
+    public void RegistrarTransacao(string idTransacao)
+    {
+        if (!string.IsNullOrWhiteSpace(idTransacao))
+        {
+            IdTransacao = idTransacao.Trim();
+        }
     }
 
     public void Aprovar()

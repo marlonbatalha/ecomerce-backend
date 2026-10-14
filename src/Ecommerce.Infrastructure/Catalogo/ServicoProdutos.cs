@@ -86,12 +86,35 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
         }
 
         var produto = await ObterAgregadoOuFalharAsync(produtoId, ct);
-        var url = await armazenamentoDeImagens.SalvarAsync(conteudo, extensao, ct);
+        var url = await armazenamentoDeImagens.SalvarAsync(conteudo, extensao, tipoConteudo, ct);
 
         var imagem = produto.AdicionarImagem(url);
         // Mesmo caso da variante acima: entidade nova numa coleção mapeada com
         // PropertyAccessMode.Field precisa de Add explícito.
         contexto.Add(imagem);
+        await contexto.SaveChangesAsync(ct);
+
+        return MapearParaDto(produto);
+    }
+
+    public async Task<ProdutoDto> RemoverImagemAsync(Guid produtoId, Guid imagemId, CancellationToken ct = default)
+    {
+        var produto = await ObterAgregadoOuFalharAsync(produtoId, ct);
+        var imagem = produto.RemoverImagem(imagemId);
+        contexto.Remove(imagem);
+        await contexto.SaveChangesAsync(ct);
+
+        // Arquivo só é apagado depois do banco confirmar — se o storage falhar, sobra no máximo
+        // um arquivo órfão (inofensivo), nunca uma imagem no banco apontando pra nada.
+        await armazenamentoDeImagens.RemoverAsync(imagem.Url, ct);
+
+        return MapearParaDto(produto);
+    }
+
+    public async Task<ProdutoDto> ReordenarImagensAsync(Guid produtoId, IReadOnlyList<Guid> imagemIdsNaOrdem, CancellationToken ct = default)
+    {
+        var produto = await ObterAgregadoOuFalharAsync(produtoId, ct);
+        produto.ReordenarImagens(imagemIdsNaOrdem);
         await contexto.SaveChangesAsync(ct);
 
         return MapearParaDto(produto);

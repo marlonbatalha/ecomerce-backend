@@ -31,7 +31,12 @@ public class ConfiguracaoPedido : IEntityTypeConfiguration<Pedido>
 
         builder.Metadata.FindNavigation(nameof(Pedido.Itens))!.SetPropertyAccessMode(PropertyAccessMode.Field);
 
-        // Total é calculado (soma dos itens) — não persistido.
+        builder.Property(p => p.CodigoCupom).HasMaxLength(Cupom.TamanhoMaximoCodigo);
+
+        builder.Property(p => p.Desconto).HasPrecision(18, 2);
+
+        // Subtotal/Total são calculados (soma dos itens, menos o desconto) — não persistidos.
+        builder.Ignore(p => p.Subtotal);
         builder.Ignore(p => p.Total);
     }
 }

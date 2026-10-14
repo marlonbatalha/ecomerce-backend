@@ -91,7 +91,6 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("TIMESTAMP(7)");
 
                     b.Property<string>("Descricao")
-                        .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("NCLOB");
 
@@ -323,6 +322,58 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.ToTable("VND_Carrinhos", (string)null);
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Vendas.Cupom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("NUMBER(1)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)");
+
+                    b.Property<int?>("LimiteDeUsos")
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<int>("QuantidadeDeUsos")
+                        .IsConcurrencyToken()
+                        .HasColumnType("NUMBER(10)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)");
+
+                    b.Property<DateTime?>("ValidoAteUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal?>("ValorMinimoDoPedido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("VND_Cupons", (string)null);
+                });
+
             modelBuilder.Entity("Ecommerce.Domain.Vendas.ItemDoCarrinho", b =>
                 {
                     b.Property<Guid>("Id")
@@ -385,6 +436,10 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("TIMESTAMP(7)");
 
+                    b.Property<string>("IdTransacao")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)");
+
                     b.Property<Guid>("PedidoId")
                         .HasColumnType("RAW(16)");
 
@@ -397,6 +452,10 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("NVARCHAR2(20)");
+
+                    b.Property<string>("UrlPagamento")
+                        .HasMaxLength(1000)
+                        .HasColumnType("NVARCHAR2(1000)");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(18, 2)
@@ -418,12 +477,20 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .ValueGeneratedOnAdd()
                         .HasColumnType("RAW(16)");
 
+                    b.Property<string>("CodigoCupom")
+                        .HasMaxLength(30)
+                        .HasColumnType("NVARCHAR2(30)");
+
                     b.Property<string>("CodigoRastreio")
                         .HasMaxLength(50)
                         .HasColumnType("NVARCHAR2(50)");
 
                     b.Property<DateTime>("CriadoEmUtc")
                         .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<decimal>("Desconto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
 
                     b.Property<string>("Status")
                         .IsRequired()

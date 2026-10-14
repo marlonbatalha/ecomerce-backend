@@ -26,8 +26,14 @@ public interface IServicoDePedidos
 
     Task<PedidoDto> MarcarComoEntregueAsync(Guid pedidoId, CancellationToken ct = default);
 
-    /// <summary>Chamado pelo webhook de pagamento — idempotente (reenvio do mesmo evento não falha).</summary>
+    /// <summary>Webhook do gateway fake (dev/testes) — idempotente (reenvio do mesmo evento não falha).</summary>
     Task ProcessarConfirmacaoDePagamentoAsync(string referenciaExterna, bool aprovado, CancellationToken ct = default);
+
+    /// <summary>
+    /// Webhook do gateway real: aplica o status já consultado no gateway (ver
+    /// <see cref="IServicoDePagamento.ConsultarPagamentoAsync"/>) ao pagamento/pedido. Idempotente.
+    /// </summary>
+    Task ProcessarPagamentoDoGatewayAsync(PagamentoConsultado pagamentoConsultado, CancellationToken ct = default);
 
     /// <summary>Admin: lista pedidos de qualquer cliente, opcionalmente filtrado por status.</summary>
     Task<ResultadoPaginado<PedidoResumoDto>> ListarTodosAsync(StatusPedido? status, int pagina, int tamanhoPagina, CancellationToken ct = default);

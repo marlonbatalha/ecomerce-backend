@@ -115,6 +115,17 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
         return Ok(produto);
     }
 
+    [HttpDelete("{id:guid}/imagens/{imagemId:guid}")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<ProdutoDto>> RemoverImagem(Guid id, Guid imagemId, CancellationToken ct) =>
+        Ok(await servicoProdutos.RemoverImagemAsync(id, imagemId, ct));
+
+    /// <summary>Nova ordem das imagens — a primeira da lista vira a principal (usada na listagem).</summary>
+    [HttpPut("{id:guid}/imagens/ordem")]
+    [Authorize(Roles = Papeis.Admin)]
+    public async Task<ActionResult<ProdutoDto>> ReordenarImagens(Guid id, ReordenarImagensRequisicao requisicao, CancellationToken ct) =>
+        Ok(await servicoProdutos.ReordenarImagensAsync(id, requisicao.ImagemIds, ct));
+
     [HttpPut("{id:guid}/variantes/{varianteId:guid}/estoque")]
     [Authorize(Roles = Papeis.Admin)]
     public async Task<ActionResult<ProdutoDto>> AjustarEstoque(Guid id, Guid varianteId, AjustarEstoqueRequisicao requisicao, CancellationToken ct) =>

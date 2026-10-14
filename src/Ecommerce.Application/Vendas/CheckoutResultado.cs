@@ -1,8 +1,8 @@
 namespace Ecommerce.Application.Vendas;
 
 /// <summary>
-/// <paramref name="ReferenciaPagamento"/> é a referência externa junto ao gateway — com um
-/// gateway real, o cliente normalmente usaria isso (ou uma URL derivada) pra completar o
-/// pagamento. Com o gateway fake atual (ver IServicoDePagamento), é só informativo.
+/// <paramref name="ReferenciaPagamento"/> é a referência da cobrança no gateway.
+/// <paramref name="UrlPagamento"/> é pra onde o frontend redireciona o cliente pagar (Checkout Pro
+/// do Mercado Pago) — null quando não há o que pagar (cupom de 100%) ou com o gateway fake.
 /// </summary>
-public record CheckoutResultado(PedidoDto Pedido, string ReferenciaPagamento);
+public record CheckoutResultado(PedidoDto Pedido, string? ReferenciaPagamento, string? UrlPagamento);

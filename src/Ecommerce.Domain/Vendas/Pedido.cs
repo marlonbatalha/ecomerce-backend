@@ -32,7 +32,14 @@ public class Pedido : Entidade
 
     public IReadOnlyCollection<ItemDoPedido> Itens => _itens.AsReadOnly();
 
-    public decimal Total => _itens.Sum(i => i.Subtotal);
+    /// <summary>Código do <see cref="Cupom"/> aplicado (snapshot — o cupom pode mudar depois).</summary>
+    public string? CodigoCupom { get; private set; }
+
+    public decimal Desconto { get; private set; }
+
+    public decimal Subtotal => _itens.Sum(i => i.Subtotal);
+
+    public decimal Total => Subtotal - Desconto;
 
     /// <summary>Construtor sem parâmetros exigido pelo EF Core — não usar diretamente.</summary>
     private Pedido()
@@ -67,6 +74,31 @@ public class Pedido : Entidade
         }
 
         return pedido;
+    }
+
+    /// <summary>
+    /// Aplica o desconto de um cupom — só uma vez e só enquanto o pedido está pendente (o valor já
+    /// foi calculado/validado por <see cref="Cupom.CalcularDesconto"/>).
+    /// </summary>
+    public void AplicarDesconto(string codigoCupom, decimal desconto)
+    {
+        if (Status != StatusPedido.Pendente)
+        {
+            throw new ExcecaoDeDominio("Só é possível aplicar desconto a um pedido pendente.");
+        }
+
+        if (CodigoCupom is not null)
+        {
+            throw new ExcecaoDeDominio("O pedido já tem um cupom aplicado.");
+        }
+
+        if (desconto <= 0 || desconto > Subtotal)
+        {
+            throw new ExcecaoDeDominio("O desconto precisa ser maior que zero e no máximo o subtotal do pedido.");
+        }
+
+        CodigoCupom = codigoCupom;
+        Desconto = desconto;
     }
 
     public void ConfirmarPagamento() => TransicionarPara(StatusPedido.PagamentoConfirmado);

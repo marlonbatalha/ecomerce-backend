@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Ecommerce.Api;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Api.Catalogo;
@@ -67,6 +68,9 @@ try
     builder.Services.AddScoped<IValidator<CriarEnderecoRequisicao>, CriarEnderecoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AtualizarPerfilRequisicao>, AtualizarPerfilRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<TrocarSenhaRequisicao>, TrocarSenhaRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<ReordenarImagensRequisicao>, ReordenarImagensRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CriarCupomRequisicao>, CriarCupomRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<ValidarCupomRequisicao>, ValidarCupomRequisicaoValidador>();
 
     builder.Services.AddRateLimiter(opcoes =>
     {
@@ -84,6 +88,16 @@ try
             janela.Window = TimeSpan.FromMinutes(1);
             janela.QueueLimit = 0;
         });
+
+        // Por IP: sem isso, a validação pública de cupom vira oráculo pra testar códigos em massa.
+        opcoes.AddPolicy(PoliticasDeRateLimiting.Cupons, contexto => RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Environment.IsDevelopment() ? 1000 : 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
     });
 
     builder.Services

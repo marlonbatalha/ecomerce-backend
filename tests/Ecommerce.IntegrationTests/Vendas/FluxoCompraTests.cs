@@ -113,7 +113,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         carrinhoDepois!.Itens.Should().BeEmpty();
 
         // Webhook confirma o pagamento.
-        var assinatura = AssinarWebhook(checkout.ReferenciaPagamento, aprovado: true);
+        var assinatura = AssinarWebhook(checkout.ReferenciaPagamento!, aprovado: true);
         using var requisicaoWebhook = new HttpRequestMessage(HttpMethod.Post, "/api/v1/pagamentos/webhook")
         {
             Content = JsonContent.Create(new { referenciaExterna = checkout.ReferenciaPagamento, aprovado = true }),

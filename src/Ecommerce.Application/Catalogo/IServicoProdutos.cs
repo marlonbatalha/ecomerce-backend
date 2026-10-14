@@ -24,6 +24,12 @@ public interface IServicoProdutos
     /// JPEG/PNG/WebP são aceitos — outro tipo lança <see cref="Ecommerce.Domain.Comum.ExcecaoDeDominio"/>.</summary>
     Task<ProdutoDto> AdicionarImagemAsync(Guid produtoId, Stream conteudo, string tipoConteudo, CancellationToken ct = default);
 
+    /// <summary>Remove a imagem do produto (e o arquivo do storage) — as restantes são reordenadas.</summary>
+    Task<ProdutoDto> RemoverImagemAsync(Guid produtoId, Guid imagemId, CancellationToken ct = default);
+
+    /// <summary>Redefine a ordem das imagens — a lista precisa ter exatamente as imagens do produto.</summary>
+    Task<ProdutoDto> ReordenarImagensAsync(Guid produtoId, IReadOnlyList<Guid> imagemIdsNaOrdem, CancellationToken ct = default);
+
     Task<ProdutoDto> AjustarEstoqueAsync(AjustarEstoqueComando comando, CancellationToken ct = default);
 
     Task<ProdutoDto> InativarVarianteAsync(InativarVarianteComando comando, CancellationToken ct = default);

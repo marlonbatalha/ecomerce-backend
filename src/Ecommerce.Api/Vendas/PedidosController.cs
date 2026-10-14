@@ -5,6 +5,7 @@ using Ecommerce.Application.Vendas;
 using Ecommerce.Domain.Vendas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Ecommerce.Api.Vendas;
 
@@ -14,11 +15,13 @@ namespace Ecommerce.Api.Vendas;
 public class PedidosController(IServicoDePedidos servicoDePedidos, IServicoCarrinho servicoCarrinho) : ControllerBase
 {
     [HttpPost("checkout")]
-    public async Task<ActionResult<CheckoutResultado>> Checkout(CancellationToken ct)
+    public async Task<ActionResult<CheckoutResultado>> Checkout(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CheckoutRequisicao? requisicao, CancellationToken ct)
     {
         var usuarioId = ObterUsuarioId();
         var carrinho = await servicoCarrinho.ObterOuCriarParaUsuarioAsync(usuarioId, ct);
-        var resultado = await servicoDePedidos.FinalizarCompraAsync(new FinalizarCompraComando(usuarioId, carrinho.Id), ct);
+        var resultado = await servicoDePedidos.FinalizarCompraAsync(
+            new FinalizarCompraComando(usuarioId, carrinho.Id, requisicao?.CodigoCupom), ct);
 
         return Ok(resultado);
     }

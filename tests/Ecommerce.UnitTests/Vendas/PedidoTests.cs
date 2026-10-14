@@ -131,6 +131,40 @@ public class PedidoTests
     }
 
     [Fact]
+    public void AplicarDesconto_DeveReduzirTotalMantendoSubtotal()
+    {
+        var pedido = CriarPedidoValido();
+
+        pedido.AplicarDesconto("DEZ", 15.98m);
+
+        pedido.Subtotal.Should().Be(159.80m);
+        pedido.Desconto.Should().Be(15.98m);
+        pedido.Total.Should().Be(143.82m);
+        pedido.CodigoCupom.Should().Be("DEZ");
+    }
+
+    [Fact]
+    public void AplicarDesconto_DuasVezes_DeveLancarExcecaoDeDominio()
+    {
+        var pedido = CriarPedidoValido();
+        pedido.AplicarDesconto("DEZ", 10m);
+
+        var act = () => pedido.AplicarDesconto("OUTRO", 10m);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void AplicarDesconto_MaiorQueSubtotal_DeveLancarExcecaoDeDominio()
+    {
+        var pedido = CriarPedidoValido();
+
+        var act = () => pedido.AplicarDesconto("DEMAIS", 200m);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
     public void ConfirmarPagamento_DepoisDeRecusado_DeveLancarExcecaoDeDominio()
     {
         var pedido = CriarPedidoValido();

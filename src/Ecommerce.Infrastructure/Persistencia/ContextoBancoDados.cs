@@ -38,6 +38,8 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
 
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
 
+    public DbSet<Cupom> Cupons => Set<Cupom>();
+
     public DbSet<Endereco> Enderecos => Set<Endereco>();
 
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)

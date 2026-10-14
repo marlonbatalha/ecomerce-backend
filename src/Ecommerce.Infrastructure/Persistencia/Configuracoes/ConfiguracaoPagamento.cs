@@ -21,6 +21,10 @@ public class ConfiguracaoPagamento : IEntityTypeConfiguration<Pagamento>
 
         builder.HasIndex(p => p.PedidoId);
 
+        builder.Property(p => p.UrlPagamento).HasMaxLength(Pagamento.TamanhoMaximoUrlPagamento);
+
+        builder.Property(p => p.IdTransacao).HasMaxLength(Pagamento.TamanhoMaximoReferenciaExterna);
+
         builder.Property(p => p.Valor).HasPrecision(18, 2);
 
         builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);

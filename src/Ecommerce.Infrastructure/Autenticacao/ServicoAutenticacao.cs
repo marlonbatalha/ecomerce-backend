@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Application.Autenticacao;
+using Ecommerce.Application.Notificacoes;
 using Ecommerce.Domain.Identidade;
 using Ecommerce.Infrastructure.Identidade;
 using Ecommerce.Infrastructure.Persistencia;
@@ -21,7 +22,8 @@ namespace Ecommerce.Infrastructure.Autenticacao;
 public class ServicoAutenticacao(
     UserManager<Usuario> gerenciadorUsuarios,
     ContextoBancoDados contexto,
-    IOptions<OpcoesJwt> opcoesJwt) : IServicoAutenticacao
+    IOptions<OpcoesJwt> opcoesJwt,
+    IServicoDeNotificacoes notificacoes) : IServicoAutenticacao
 {
     private readonly OpcoesJwt _opcoes = opcoesJwt.Value;
 
@@ -41,6 +43,7 @@ public class ServicoAutenticacao(
         }
 
         await gerenciadorUsuarios.AddToRoleAsync(usuario, Papeis.Cliente);
+        await notificacoes.BoasVindasAsync(usuario.Email!, usuario.Nome, ct);
 
         return await GerarTokensAsync(usuario, ct);
     }

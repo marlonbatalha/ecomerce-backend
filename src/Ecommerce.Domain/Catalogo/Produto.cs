@@ -130,6 +130,47 @@ public class Produto : Entidade
         return imagem;
     }
 
+    /// <summary>
+    /// Remove a imagem e recompacta a ordem das restantes (0..n-1) — se a removida era a
+    /// principal (ordem 0), a seguinte assume o lugar. Devolve a removida pra quem chama apagar o
+    /// arquivo no storage e o registro no banco.
+    /// </summary>
+    public ImagemDeProduto RemoverImagem(Guid imagemId)
+    {
+        var imagem = _imagens.FirstOrDefault(i => i.Id == imagemId)
+            ?? throw new ExcecaoDeDominio("Imagem não encontrada neste produto.");
+
+        _imagens.Remove(imagem);
+
+        var ordem = 0;
+        foreach (var restante in _imagens.OrderBy(i => i.Ordem))
+        {
+            restante.DefinirOrdem(ordem++);
+        }
+
+        return imagem;
+    }
+
+    /// <summary>
+    /// Define a nova ordem de exibição — <paramref name="imagemIdsNaOrdem"/> precisa conter
+    /// exatamente as imagens do produto, cada uma uma vez (a primeira vira a principal).
+    /// </summary>
+    public void ReordenarImagens(IReadOnlyList<Guid> imagemIdsNaOrdem)
+    {
+        var idsAtuais = _imagens.Select(i => i.Id).ToHashSet();
+        if (imagemIdsNaOrdem.Count != idsAtuais.Count
+            || imagemIdsNaOrdem.Distinct().Count() != imagemIdsNaOrdem.Count
+            || !imagemIdsNaOrdem.All(idsAtuais.Contains))
+        {
+            throw new ExcecaoDeDominio("A nova ordem precisa conter exatamente as imagens do produto, sem repetição.");
+        }
+
+        for (var posicao = 0; posicao < imagemIdsNaOrdem.Count; posicao++)
+        {
+            _imagens.First(i => i.Id == imagemIdsNaOrdem[posicao]).DefinirOrdem(posicao);
+        }
+    }
+
     private VarianteDeProduto ObterVarianteOuFalhar(Guid varianteId) =>
         _variantes.FirstOrDefault(v => v.Id == varianteId)
             ?? throw new ExcecaoDeDominio("Variante não encontrada neste produto.");

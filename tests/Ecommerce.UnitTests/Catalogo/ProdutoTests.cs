@@ -128,4 +128,57 @@ public class ProdutoTests
         act.Should().Throw<ExcecaoDeDominio>();
         produto.Nome.Should().Be("Camiseta Básica");
     }
+
+    [Fact]
+    public void RemoverImagem_Principal_DeveRecompactarOrdem()
+    {
+        var produto = CriarProdutoValido();
+        var primeira = produto.AdicionarImagem("https://cdn/1.jpg");
+        var segunda = produto.AdicionarImagem("https://cdn/2.jpg");
+        var terceira = produto.AdicionarImagem("https://cdn/3.jpg");
+
+        var removida = produto.RemoverImagem(primeira.Id);
+
+        removida.Should().BeSameAs(primeira);
+        produto.Imagens.Should().HaveCount(2);
+        segunda.Ordem.Should().Be(0);
+        terceira.Ordem.Should().Be(1);
+    }
+
+    [Fact]
+    public void RemoverImagem_Inexistente_DeveLancarExcecaoDeDominio()
+    {
+        var produto = CriarProdutoValido();
+
+        var act = () => produto.RemoverImagem(Guid.NewGuid());
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void ReordenarImagens_DeveAplicarNovaOrdem()
+    {
+        var produto = CriarProdutoValido();
+        var primeira = produto.AdicionarImagem("https://cdn/1.jpg");
+        var segunda = produto.AdicionarImagem("https://cdn/2.jpg");
+
+        produto.ReordenarImagens([segunda.Id, primeira.Id]);
+
+        segunda.Ordem.Should().Be(0);
+        primeira.Ordem.Should().Be(1);
+    }
+
+    [Fact]
+    public void ReordenarImagens_ComListaIncompletaOuRepetida_DeveLancarExcecaoDeDominio()
+    {
+        var produto = CriarProdutoValido();
+        var primeira = produto.AdicionarImagem("https://cdn/1.jpg");
+        produto.AdicionarImagem("https://cdn/2.jpg");
+
+        var incompleta = () => produto.ReordenarImagens([primeira.Id]);
+        var repetida = () => produto.ReordenarImagens([primeira.Id, primeira.Id]);
+
+        incompleta.Should().Throw<ExcecaoDeDominio>();
+        repetida.Should().Throw<ExcecaoDeDominio>();
+    }
 }

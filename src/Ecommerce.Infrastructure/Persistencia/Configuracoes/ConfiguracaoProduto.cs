@@ -21,7 +21,8 @@ public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
             .IsRequired();
 
         builder.Property(p => p.Descricao)
-            .HasMaxLength(Produto.TamanhoMaximoDescricao);
+            .HasMaxLength(Produto.TamanhoMaximoDescricao)
+            .ComStringVaziaComoNulo();
 
         builder.Property(p => p.Sku)
             .HasMaxLength(Produto.TamanhoMaximoSku)
