@@ -75,6 +75,12 @@ public class AutenticacaoController(
 
         var resultado = await servicoAutenticacao.AtualizarTokenAsync(refreshToken, ct);
 
+        // 409, não 401: a sessão continua válida (outra requisição já renovou) — o cookie fica.
+        if (resultado.RenovacaoConcorrente)
+        {
+            return Conflict(new { erro = resultado.Erro });
+        }
+
         if (!resultado.Sucesso)
         {
             Response.Cookies.Delete(NomeCookieRefreshToken);

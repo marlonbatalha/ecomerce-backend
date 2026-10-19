@@ -133,9 +133,17 @@ public class ServicoCarrinho(ContextoBancoDados contexto) : IServicoCarrinho
             .ToDictionaryAsync(v => v.Id, ct);
 
         var produtoIds = variantes.Values.Select(v => v.ProdutoId).Distinct().ToList();
-        var nomesProdutos = await contexto.Produtos
+        var produtos = await contexto.Produtos
             .Where(p => produtoIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p.Nome, ct);
+            .Select(p => new
+            {
+                p.Id,
+                p.Nome,
+                p.Slug,
+                ImagemUrl = p.Imagens.OrderBy(i => i.Ordem).Select(i => i.Url).FirstOrDefault(),
+                VariantesAtivas = p.Variantes.Count(v => v.Ativo),
+            })
+            .ToDictionaryAsync(p => p.Id, ct);
 
         var itens = new List<ItemCarrinhoDto>();
         foreach (var item in carrinho.Itens)
@@ -147,8 +155,18 @@ public class ServicoCarrinho(ContextoBancoDados contexto) : IServicoCarrinho
                 continue;
             }
 
-            var nomeProduto = nomesProdutos.GetValueOrDefault(variante.ProdutoId, "(produto indisponível)");
-            itens.Add(new ItemCarrinhoDto(item.VarianteDeProdutoId, nomeProduto, variante.Nome, variante.Preco, item.Quantidade, variante.Preco * item.Quantidade));
+            var produto = produtos.GetValueOrDefault(variante.ProdutoId);
+            itens.Add(new ItemCarrinhoDto(
+                item.VarianteDeProdutoId,
+                produto?.Nome ?? "(produto indisponível)",
+                variante.Nome,
+                variante.Preco,
+                item.Quantidade,
+                variante.Preco * item.Quantidade,
+                produto?.Slug ?? string.Empty,
+                produto?.ImagemUrl,
+                variante.Ativo ? variante.Estoque : 0,
+                produto?.VariantesAtivas > 1));
         }
 
         return new CarrinhoDto(carrinho.Id, itens, itens.Sum(i => i.Subtotal));

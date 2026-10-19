@@ -42,7 +42,24 @@ public class ConfiguracaoPedido : IEntityTypeConfiguration<Pedido>
 
         builder.Property(p => p.Desconto).HasPrecision(18, 2);
 
-        // Subtotal/Total são calculados (soma dos itens, menos o desconto) — não persistidos.
+        // Colunas na própria VND_Pedidos (owned) — é uma cópia do endereço, não uma relação.
+        // Opcional no banco só por causa dos pedidos anteriores a esta mudança.
+        builder.OwnsOne(p => p.Entrega, entrega =>
+        {
+            entrega.Property(e => e.Logradouro).HasColumnName("EntregaLogradouro").HasMaxLength(200);
+            entrega.Property(e => e.Numero).HasColumnName("EntregaNumero").HasMaxLength(20);
+            entrega.Property(e => e.Complemento).HasColumnName("EntregaComplemento").HasMaxLength(100);
+            entrega.Property(e => e.Bairro).HasColumnName("EntregaBairro").HasMaxLength(100);
+            entrega.Property(e => e.Cidade).HasColumnName("EntregaCidade").HasMaxLength(100);
+            entrega.Property(e => e.Estado).HasColumnName("EntregaEstado").HasMaxLength(2);
+            entrega.Property(e => e.Cep).HasColumnName("EntregaCep").HasMaxLength(9);
+        });
+
+        builder.Property(p => p.MetodoDeEnvio).HasMaxLength(50);
+
+        builder.Property(p => p.ValorFrete).HasPrecision(18, 2);
+
+        // Subtotal/Total são calculados (itens − desconto + frete) — não persistidos.
         builder.Ignore(p => p.Subtotal);
         builder.Ignore(p => p.Total);
     }

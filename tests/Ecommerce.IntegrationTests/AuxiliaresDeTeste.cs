@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Application.Catalogo;
+using Ecommerce.Application.Contas;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Ecommerce.IntegrationTests;
@@ -60,6 +61,33 @@ public static class AuxiliaresDeTeste
 
     public static async Task AdicionarAoCarrinhoAsync(this HttpClient cliente, Guid varianteId, int quantidade = 1) =>
         (await cliente.PostAsJsonAsync("/api/v1/carrinho/itens", new { varianteDeProdutoId = varianteId, quantidade })).EnsureSuccessStatusCode();
+
+    /// <summary>Valor do PAC no <c>ServicoDeFreteFake</c> — entra no total de todo pedido finalizado por <see cref="FinalizarCompraAsync"/>.</summary>
+    public const decimal FretePac = 19.90m;
+
+    public static async Task<Guid> CriarEnderecoAsync(this HttpClient cliente)
+    {
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/conta/enderecos", new
+        {
+            rotulo = "Casa",
+            logradouro = "Av. Paulista",
+            numero = "1000",
+            complemento = (string?)null,
+            bairro = "Bela Vista",
+            cidade = "São Paulo",
+            estado = "SP",
+            cep = "01310-100",
+        });
+        resposta.EnsureSuccessStatusCode();
+        return (await resposta.Content.ReadFromJsonAsync<EnderecoDto>())!.Id;
+    }
+
+    /// <summary>Cadastra um endereço e finaliza a compra do carrinho atual com PAC.</summary>
+    public static async Task<HttpResponseMessage> FinalizarCompraAsync(this HttpClient cliente, string? codigoCupom = null)
+    {
+        var enderecoId = await cliente.CriarEnderecoAsync();
+        return await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "PAC", codigoCupom });
+    }
 
     private static async Task<HttpClient> LogarAsync(HttpClient cliente, string email)
     {

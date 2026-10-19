@@ -21,10 +21,14 @@ namespace Ecommerce.Infrastructure.Autenticacao;
 /// </summary>
 public class ServicoAutenticacao(
     UserManager<Usuario> gerenciadorUsuarios,
+    SignInManager<Usuario> gerenciadorLogin,
     ContextoBancoDados contexto,
     IOptions<OpcoesJwt> opcoesJwt,
     IServicoDeNotificacoes notificacoes) : IServicoAutenticacao
 {
+    /// <summary>Janela em que reapresentar um refresh token recém-rotacionado é tratado como concorrência, não reuso.</summary>
+    internal static readonly TimeSpan ToleranciaRenovacaoConcorrente = TimeSpan.FromSeconds(30);
+
     private readonly OpcoesJwt _opcoes = opcoesJwt.Value;
 
     public async Task<ResultadoAutenticacao> RegistrarAsync(RegistrarUsuarioComando comando, CancellationToken ct = default)
@@ -51,7 +55,16 @@ public class ServicoAutenticacao(
     public async Task<ResultadoAutenticacao> LoginAsync(LoginComando comando, CancellationToken ct = default)
     {
         var usuario = await gerenciadorUsuarios.FindByEmailAsync(comando.Email);
-        if (usuario is null || !await gerenciadorUsuarios.CheckPasswordAsync(usuario, comando.Senha))
+        if (usuario is null)
+        {
+            return ResultadoAutenticacao.ComFalha("E-mail ou senha inválidos.");
+        }
+
+        // lockoutOnFailure: conta falhas e bloqueia a conta por um tempo (opções de Lockout em
+        // InjecaoDeDependencia); sucesso zera o contador. Conta bloqueada recebe a mesma mensagem
+        // genérica — uma mensagem própria revelaria que o e-mail existe.
+        var resultado = await gerenciadorLogin.CheckPasswordSignInAsync(usuario, comando.Senha, lockoutOnFailure: true);
+        if (!resultado.Succeeded)
         {
             return ResultadoAutenticacao.ComFalha("E-mail ou senha inválidos.");
         }
@@ -67,6 +80,16 @@ public class ServicoAutenticacao(
         if (tokenExistente is null)
         {
             return ResultadoAutenticacao.ComFalha("Refresh token inválido.");
+        }
+
+        // Rotacionado há instantes por uma renovação (não por logout): é outra requisição do mesmo
+        // cliente renovando em paralelo, não roubo — revogar a cadeia aqui derrubaria a sessão
+        // legítima a cada navegação com requisições simultâneas.
+        if (tokenExistente.EstaRevogado
+            && tokenExistente.SubstituidoPorHashToken is not null
+            && tokenExistente.RevogadoEmUtc >= DateTime.UtcNow - ToleranciaRenovacaoConcorrente)
+        {
+            return ResultadoAutenticacao.ComRenovacaoConcorrente();
         }
 
         if (tokenExistente.EstaRevogado)
@@ -173,5 +196,5 @@ public class ServicoAutenticacao(
     private static string CalcularHash(string valor) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(valor)));
 
     private static string DescreverErros(IdentityResult resultado) =>
-        string.Join(" ", resultado.Errors.Select(e => e.Description));
+        string.Join(" ", resultado.Errors.Select(e => e.Description).Distinct());
 }

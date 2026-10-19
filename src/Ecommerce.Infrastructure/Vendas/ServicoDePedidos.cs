@@ -13,6 +13,7 @@ namespace Ecommerce.Infrastructure.Vendas;
 public class ServicoDePedidos(
     ContextoBancoDados contexto,
     IServicoDePagamento servicoDePagamento,
+    IServicoDeFrete servicoDeFrete,
     IServicoDeNotificacoes notificacoes,
     ILogger<ServicoDePedidos> logger) : IServicoDePedidos
 {
@@ -30,6 +31,19 @@ public class ServicoDePedidos(
         {
             throw new ExcecaoDeDominio("O carrinho está vazio.");
         }
+
+        // Endereço e frete antes de qualquer mudança (estoque, cupom): falha cedo e sem efeito.
+        // Filtrar por UsuarioId evita IDOR — o id de endereço de outra pessoa vira "não encontrado".
+        var endereco = await contexto.Enderecos.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == comando.EnderecoId && e.UsuarioId == comando.UsuarioId, ct)
+            ?? throw new ExcecaoDeDominio("Endereço de entrega não encontrado.");
+
+        var opcoesDeFrete = await servicoDeFrete.CalcularAsync(
+            endereco.Cep,
+            carrinho.Itens.Select(i => new ItemFreteConsulta(i.VarianteDeProdutoId, i.Quantidade)).ToList(),
+            ct);
+        var frete = opcoesDeFrete.FirstOrDefault(o => string.Equals(o.Nome, comando.MetodoDeEnvio.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new ExcecaoDeDominio("Método de envio indisponível para este endereço.");
 
         var varianteIds = carrinho.Itens.Select(i => i.VarianteDeProdutoId).ToList();
         var variantes = await contexto.Set<VarianteDeProduto>()
@@ -66,6 +80,11 @@ public class ServicoDePedidos(
         }
 
         var pedido = Pedido.Criar(comando.UsuarioId, rascunhos);
+        pedido.DefinirEntrega(
+            EnderecoDeEntrega.Criar(endereco.Logradouro, endereco.Numero, endereco.Complemento, endereco.Bairro, endereco.Cidade, endereco.Estado, endereco.Cep),
+            frete.Nome,
+            frete.Preco,
+            frete.PrazoEmDiasUteis);
 
         if (!string.IsNullOrWhiteSpace(comando.CodigoCupom))
         {
@@ -183,6 +202,13 @@ public class ServicoDePedidos(
             throw new ExcecaoDeDominio("Pedido não encontrado.");
         }
 
+        // O domínio aceita cancelar pedido pago, mas isso exige estorno no gateway — que este
+        // caminho não faz. Pelo cliente, só antes do pagamento; depois, é atendimento/admin.
+        if (pedido.Status != StatusPedido.Pendente)
+        {
+            throw new ExcecaoDeDominio("Só é possível cancelar pedidos aguardando pagamento. Para pedidos pagos, fale com o atendimento.");
+        }
+
         pedido.Cancelar();
         await DevolverEstoqueAsync(pedido, ct);
         await contexto.SaveChangesAsync(ct);
@@ -253,6 +279,15 @@ public class ServicoDePedidos(
                 {
                     pedido.ConfirmarPagamento();
                     pagamentoConfirmadoAgora = true;
+                }
+                else if (pedido.Status == StatusPedido.Cancelado)
+                {
+                    // O cliente cancelou e pagou mesmo assim (link do gateway ainda aberto). O
+                    // dinheiro entrou e o pedido não vai sair — sem estorno automático ainda.
+                    logger.LogError(
+                        "Pagamento aprovado para o pedido cancelado {PedidoId} (transação {Transacao}) — estornar manualmente.",
+                        pedido.Id,
+                        pagamento.IdTransacao);
                 }
 
                 break;
@@ -341,5 +376,9 @@ public class ServicoDePedidos(
         pedido.CodigoCupom,
         pedido.Total,
         pedido.Itens.Select(i => new ItemPedidoDto(i.VarianteDeProdutoId, i.NomeProduto, i.PrecoUnitario, i.Quantidade, i.Subtotal)).ToList(),
+        pedido.Entrega is { } e ? new EnderecoDeEntregaDto(e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Cidade, e.Estado, e.Cep) : null,
+        pedido.MetodoDeEnvio,
+        pedido.ValorFrete,
+        pedido.PrazoEntregaDias,
         pedido.Status == StatusPedido.Pendente ? urlPagamento : null);
 }

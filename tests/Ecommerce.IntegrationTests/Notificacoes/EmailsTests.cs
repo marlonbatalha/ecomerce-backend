@@ -25,7 +25,7 @@ public class EmailsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
         var (cliente, email) = await fabrica.CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(produto.Variantes.Single().Id);
 
-        var checkout = await (await cliente.PostAsync("/api/v1/pedidos/checkout", null)).Content.ReadFromJsonAsync<CheckoutResultado>();
+        var checkout = await (await cliente.FinalizarCompraAsync()).Content.ReadFromJsonAsync<CheckoutResultado>();
 
         var recebido = await fabrica.Emails.AguardarAsync(m => m.Destinatario == email && m.Assunto.StartsWith("Recebemos seu pedido"));
         recebido.CorpoHtml.Should().Contain("R$").And.Contain(checkout!.Pedido.Id.ToString());

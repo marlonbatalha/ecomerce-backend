@@ -4,6 +4,7 @@ using Ecommerce.Application.Catalogo;
 using Ecommerce.Application.Comum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Ecommerce.Api.Catalogo;
 
@@ -16,18 +17,20 @@ public class ProdutosController(IServicoProdutos servicoProdutos) : ControllerBa
     /// variante ativa em estoque (não dá pra ver produto inativo por aqui, só admin gerencia isso).
     /// </summary>
     [HttpGet]
+    [EnableRateLimiting(PoliticasDeRateLimiting.BuscaDeProdutos)]
     public async Task<ActionResult<ResultadoPaginado<ProdutoResumoDto>>> Buscar(
-        [FromQuery] Guid? categoriaId,
-        [FromQuery] decimal? precoMinimo,
-        [FromQuery] decimal? precoMaximo,
-        [FromQuery] string? termo,
-        [FromQuery] OrdenacaoProduto ordenacao = OrdenacaoProduto.MaisRecente,
-        [FromQuery] int pagina = 1,
-        [FromQuery] int tamanhoPagina = 20,
+        [FromQuery] BuscarProdutosRequisicao requisicao,
         CancellationToken ct = default)
     {
         var consulta = new BuscarProdutosConsulta(
-            categoriaId, precoMinimo, precoMaximo, termo, ApenasDisponiveis: true, ordenacao, pagina, tamanhoPagina);
+            requisicao.CategoriaId,
+            requisicao.PrecoMinimo,
+            requisicao.PrecoMaximo,
+            requisicao.Termo,
+            ApenasDisponiveis: true,
+            requisicao.Ordenacao,
+            requisicao.Pagina,
+            requisicao.TamanhoPagina);
 
         return Ok(await servicoProdutos.BuscarAsync(consulta, ct));
     }

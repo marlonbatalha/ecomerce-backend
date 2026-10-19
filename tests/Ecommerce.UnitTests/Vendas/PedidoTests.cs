@@ -20,6 +20,81 @@ public class PedidoTests
         pedido.Itens.Should().ContainSingle();
     }
 
+    private static EnderecoDeEntrega EnderecoValido() =>
+        EnderecoDeEntrega.Criar(" Av. Paulista ", "1000", "  ", "Bela Vista", "São Paulo", "sp", "01310-100");
+
+    [Fact]
+    public void DefinirEntrega_DeveSomarOFreteAoTotalMasNaoAoSubtotal()
+    {
+        var pedido = CriarPedidoValido();
+
+        pedido.DefinirEntrega(EnderecoValido(), "PAC", 19.90m, 8);
+
+        pedido.Subtotal.Should().Be(159.80m);
+        pedido.Total.Should().Be(179.70m);
+        pedido.MetodoDeEnvio.Should().Be("PAC");
+        pedido.PrazoEntregaDias.Should().Be(8);
+    }
+
+    [Fact]
+    public void DefinirEntrega_ComDesconto_DescontaSoOsProdutos()
+    {
+        var pedido = CriarPedidoValido();
+        pedido.AplicarDesconto("TUDO", 159.80m);
+
+        pedido.DefinirEntrega(EnderecoValido(), "PAC", 19.90m, 8);
+
+        pedido.Total.Should().Be(19.90m);
+    }
+
+    [Fact]
+    public void DefinirEntrega_DuasVezes_DeveLancarExcecaoDeDominio()
+    {
+        var pedido = CriarPedidoValido();
+        pedido.DefinirEntrega(EnderecoValido(), "PAC", 19.90m, 8);
+
+        var act = () => pedido.DefinirEntrega(EnderecoValido(), "SEDEX", 34.90m, 3);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void DefinirEntrega_ComFreteNegativo_DeveLancarExcecaoDeDominio()
+    {
+        var act = () => CriarPedidoValido().DefinirEntrega(EnderecoValido(), "PAC", -1m, 8);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void DefinirEntrega_ComPedidoJaPago_DeveLancarExcecaoDeDominio()
+    {
+        var pedido = CriarPedidoValido();
+        pedido.ConfirmarPagamento();
+
+        var act = () => pedido.DefinirEntrega(EnderecoValido(), "PAC", 19.90m, 8);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void EnderecoDeEntrega_DeveNormalizarEspacosEUf()
+    {
+        var endereco = EnderecoValido();
+
+        endereco.Logradouro.Should().Be("Av. Paulista");
+        endereco.Complemento.Should().BeNull();
+        endereco.Estado.Should().Be("SP");
+    }
+
+    [Fact]
+    public void EnderecoDeEntrega_Incompleto_DeveLancarExcecaoDeDominio()
+    {
+        var act = () => EnderecoDeEntrega.Criar("Rua", "", null, "Bairro", "Cidade", "SP", "01310-100");
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
     [Fact]
     public void Criar_SemItens_DeveLancarExcecaoDeDominio()
     {

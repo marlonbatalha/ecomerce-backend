@@ -15,13 +15,12 @@ namespace Ecommerce.Api.Vendas;
 public class PedidosController(IServicoDePedidos servicoDePedidos, IServicoCarrinho servicoCarrinho) : ControllerBase
 {
     [HttpPost("checkout")]
-    public async Task<ActionResult<CheckoutResultado>> Checkout(
-        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CheckoutRequisicao? requisicao, CancellationToken ct)
+    public async Task<ActionResult<CheckoutResultado>> Checkout(CheckoutRequisicao requisicao, CancellationToken ct)
     {
         var usuarioId = ObterUsuarioId();
         var carrinho = await servicoCarrinho.ObterOuCriarParaUsuarioAsync(usuarioId, ct);
         var resultado = await servicoDePedidos.FinalizarCompraAsync(
-            new FinalizarCompraComando(usuarioId, carrinho.Id, requisicao?.CodigoCupom), ct);
+            new FinalizarCompraComando(usuarioId, carrinho.Id, requisicao.EnderecoId, requisicao.MetodoDeEnvio, requisicao.CodigoCupom), ct);
 
         return Ok(resultado);
     }

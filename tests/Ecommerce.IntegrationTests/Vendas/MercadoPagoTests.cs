@@ -19,7 +19,7 @@ public class MercadoPagoTests(FabricaDeAplicacaoMercadoPago fabrica) : IClassFix
         var (cliente, _) = await fabrica.CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(produto.Variantes.Single().Id);
 
-        var resposta = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var resposta = await cliente.FinalizarCompraAsync();
         resposta.StatusCode.Should().Be(HttpStatusCode.OK);
         return (cliente, (await resposta.Content.ReadFromJsonAsync<CheckoutResultado>())!);
     }
@@ -50,7 +50,8 @@ public class MercadoPagoTests(FabricaDeAplicacaoMercadoPago fabrica) : IClassFix
 
         var preference = fabrica.ApiMercadoPago.PreferenciasRecebidas.Select(p => JsonDocument.Parse(p).RootElement)
             .Single(p => p.GetProperty("external_reference").GetString() == checkout.Pedido.Id.ToString());
-        preference.GetProperty("items")[0].GetProperty("unit_price").GetDecimal().Should().Be(80m);
+        // Produto + frete: o Mercado Pago cobra o total do pedido.
+        preference.GetProperty("items")[0].GetProperty("unit_price").GetDecimal().Should().Be(80m + AuxiliaresDeTeste.FretePac);
         preference.GetProperty("notification_url").GetString().Should().Be("https://api.loja.teste/api/v1/pagamentos/webhook/mercadopago");
         preference.GetProperty("back_urls").GetProperty("success").GetString().Should().StartWith("https://loja.teste/checkout/confirmacao");
         preference.GetProperty("auto_return").GetString().Should().Be("approved");

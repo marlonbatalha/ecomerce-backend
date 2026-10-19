@@ -501,6 +501,13 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)");
 
+                    b.Property<string>("MetodoDeEnvio")
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)");
+
+                    b.Property<int?>("PrazoEntregaDias")
+                        .HasColumnType("NUMBER(10)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -508,6 +515,10 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.Property<Guid>("UsuarioId")
                         .HasColumnType("RAW(16)");
+
+                    b.Property<decimal>("ValorFrete")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("DECIMAL(18,2)");
 
                     b.HasKey("Id");
 
@@ -850,6 +861,62 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.OwnsOne("Ecommerce.Domain.Vendas.EnderecoDeEntrega", "Entrega", b1 =>
+                        {
+                            b1.Property<Guid>("PedidoId")
+                                .HasColumnType("RAW(16)");
+
+                            b1.Property<string>("Bairro")
+                                .IsRequired()
+                                .HasMaxLength(100)
+                                .HasColumnType("NVARCHAR2(100)")
+                                .HasColumnName("EntregaBairro");
+
+                            b1.Property<string>("Cep")
+                                .IsRequired()
+                                .HasMaxLength(9)
+                                .HasColumnType("NVARCHAR2(9)")
+                                .HasColumnName("EntregaCep");
+
+                            b1.Property<string>("Cidade")
+                                .IsRequired()
+                                .HasMaxLength(100)
+                                .HasColumnType("NVARCHAR2(100)")
+                                .HasColumnName("EntregaCidade");
+
+                            b1.Property<string>("Complemento")
+                                .HasMaxLength(100)
+                                .HasColumnType("NVARCHAR2(100)")
+                                .HasColumnName("EntregaComplemento");
+
+                            b1.Property<string>("Estado")
+                                .IsRequired()
+                                .HasMaxLength(2)
+                                .HasColumnType("NVARCHAR2(2)")
+                                .HasColumnName("EntregaEstado");
+
+                            b1.Property<string>("Logradouro")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("NVARCHAR2(200)")
+                                .HasColumnName("EntregaLogradouro");
+
+                            b1.Property<string>("Numero")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("NVARCHAR2(20)")
+                                .HasColumnName("EntregaNumero");
+
+                            b1.HasKey("PedidoId");
+
+                            b1.ToTable("VND_Pedidos");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PedidoId");
+                        });
+
+                    b.Navigation("Entrega");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

@@ -37,9 +37,20 @@ public class Pedido : Entidade
 
     public decimal Desconto { get; private set; }
 
+    /// <summary>Pra onde o pedido vai. Null só em pedidos antigos, de antes da entrega existir no checkout.</summary>
+    public EnderecoDeEntrega? Entrega { get; private set; }
+
+    /// <summary>Nome do método escolhido (ex.: "PAC", "SEDEX") — snapshot, como o preço dos itens.</summary>
+    public string? MetodoDeEnvio { get; private set; }
+
+    public decimal ValorFrete { get; private set; }
+
+    public int? PrazoEntregaDias { get; private set; }
+
     public decimal Subtotal => _itens.Sum(i => i.Subtotal);
 
-    public decimal Total => Subtotal - Desconto;
+    /// <summary>O cupom desconta só dos produtos; o frete é cobrado inteiro.</summary>
+    public decimal Total => Subtotal - Desconto + ValorFrete;
 
     /// <summary>Construtor sem parâmetros exigido pelo EF Core — não usar diretamente.</summary>
     private Pedido()
@@ -99,6 +110,43 @@ public class Pedido : Entidade
 
         CodigoCupom = codigoCupom;
         Desconto = desconto;
+    }
+
+    /// <summary>
+    /// Define endereço e frete — uma vez só, enquanto pendente. O valor vem do cálculo de frete do
+    /// servidor (<c>IServicoDeFrete</c>), nunca do que o cliente mandou.
+    /// </summary>
+    public void DefinirEntrega(EnderecoDeEntrega endereco, string metodoDeEnvio, decimal valorFrete, int prazoEntregaDias)
+    {
+        if (Status != StatusPedido.Pendente)
+        {
+            throw new ExcecaoDeDominio("Só é possível definir a entrega de um pedido pendente.");
+        }
+
+        if (Entrega is not null)
+        {
+            throw new ExcecaoDeDominio("A entrega do pedido já foi definida.");
+        }
+
+        if (string.IsNullOrWhiteSpace(metodoDeEnvio))
+        {
+            throw new ExcecaoDeDominio("O método de envio é obrigatório.");
+        }
+
+        if (valorFrete < 0)
+        {
+            throw new ExcecaoDeDominio("O valor do frete não pode ser negativo.");
+        }
+
+        if (prazoEntregaDias < 0)
+        {
+            throw new ExcecaoDeDominio("O prazo de entrega não pode ser negativo.");
+        }
+
+        Entrega = endereco ?? throw new ExcecaoDeDominio("O endereço de entrega é obrigatório.");
+        MetodoDeEnvio = metodoDeEnvio.Trim();
+        ValorFrete = valorFrete;
+        PrazoEntregaDias = prazoEntregaDias;
     }
 
     public void ConfirmarPagamento() => TransicionarPara(StatusPedido.PagamentoConfirmado);

@@ -74,7 +74,14 @@ public static class InjecaoDeDependencia
             {
                 opcoes.Password.RequiredLength = 8;
                 opcoes.User.RequireUniqueEmail = true;
+
+                // Força bruta contra uma conta específica vinda de vários IPs passa pelo rate
+                // limit (que é por cliente) — o bloqueio por conta cobre esse caso. Ver
+                // ServicoAutenticacao.LoginAsync.
+                opcoes.Lockout.MaxFailedAccessAttempts = 5;
+                opcoes.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
+            .AddErrorDescriber<DescritorDeErrosIdentity>()
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<ContextoBancoDados>()
             .AddSignInManager();

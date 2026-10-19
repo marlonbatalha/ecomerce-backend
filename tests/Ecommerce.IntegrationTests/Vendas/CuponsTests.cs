@@ -78,13 +78,14 @@ public class CuponsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
         var (cliente, _) = await fabrica.CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(produto.Variantes.Single().Id, 2);
 
-        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { codigoCupom = codigo });
+        var resposta = await cliente.FinalizarCompraAsync(codigo);
 
         resposta.StatusCode.Should().Be(HttpStatusCode.OK);
         var checkout = await resposta.Content.ReadFromJsonAsync<CheckoutResultado>();
         checkout!.Pedido.Subtotal.Should().Be(200m);
         checkout.Pedido.Desconto.Should().Be(20m);
-        checkout.Pedido.Total.Should().Be(180m);
+        // O cupom desconta só os produtos; o frete entra inteiro.
+        checkout.Pedido.Total.Should().Be(180m + AuxiliaresDeTeste.FretePac);
         checkout.Pedido.CodigoCupom.Should().Be(codigo);
 
         var cupons = await admin.GetFromJsonAsync<List<CupomDto>>("/api/v1/cupons");
@@ -102,11 +103,11 @@ public class CuponsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
 
         var (primeiro, _) = await fabrica.CriarClienteLogadoAsync();
         await primeiro.AdicionarAoCarrinhoAsync(varianteId);
-        (await primeiro.PostAsJsonAsync("/api/v1/pedidos/checkout", new { codigoCupom = codigo })).EnsureSuccessStatusCode();
+        (await primeiro.FinalizarCompraAsync(codigo)).EnsureSuccessStatusCode();
 
         var (segundo, _) = await fabrica.CriarClienteLogadoAsync();
         await segundo.AdicionarAoCarrinhoAsync(varianteId);
-        var resposta = await segundo.PostAsJsonAsync("/api/v1/pedidos/checkout", new { codigoCupom = codigo });
+        var resposta = await segundo.FinalizarCompraAsync(codigo);
 
         resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await segundo.GetFromJsonAsync<ResultadoPaginado<PedidoResumoDto>>("/api/v1/pedidos"))!.Itens.Should().BeEmpty();
@@ -116,7 +117,7 @@ public class CuponsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
     }
 
     [Fact]
-    public async Task Checkout_ComCupomDeCemPorCento_DeveConfirmarSemCobranca()
+    public async Task Checkout_ComCupomDeCemPorCento_DeveCobrarSoOFrete()
     {
         using var admin = await fabrica.CriarClienteAdminAsync();
         var produto = await admin.CriarProdutoComVarianteAsync(preco: 30m);
@@ -125,13 +126,13 @@ public class CuponsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
 
         var (cliente, _) = await fabrica.CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(produto.Variantes.Single().Id);
-        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { codigoCupom = codigo });
+        var resposta = await cliente.FinalizarCompraAsync(codigo);
 
         var checkout = await resposta.Content.ReadFromJsonAsync<CheckoutResultado>();
-        checkout!.Pedido.Total.Should().Be(0m);
-        checkout.Pedido.Status.Should().Be(StatusPedido.PagamentoConfirmado);
-        checkout.ReferenciaPagamento.Should().BeNull();
-        checkout.UrlPagamento.Should().BeNull();
+        checkout!.Pedido.Desconto.Should().Be(30m);
+        checkout.Pedido.Total.Should().Be(AuxiliaresDeTeste.FretePac);
+        checkout.Pedido.Status.Should().Be(StatusPedido.Pendente);
+        checkout.ReferenciaPagamento.Should().NotBeNull();
     }
 
     [Fact]
@@ -142,7 +143,7 @@ public class CuponsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<Fabric
 
         var (cliente, _) = await fabrica.CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(produto.Variantes.Single().Id, 3);
-        var checkout = await (await cliente.PostAsync("/api/v1/pedidos/checkout", null)).Content.ReadFromJsonAsync<CheckoutResultado>();
+        var checkout = await (await cliente.FinalizarCompraAsync()).Content.ReadFromJsonAsync<CheckoutResultado>();
         (await admin.GetFromJsonAsync<ProdutoDto>($"/api/v1/produtos/{produto.Id}"))!.Variantes.Single().Estoque.Should().Be(2);
 
         (await cliente.PostAsync($"/api/v1/pedidos/{checkout!.Pedido.Id}/cancelar", null)).EnsureSuccessStatusCode();

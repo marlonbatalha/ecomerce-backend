@@ -1,3 +1,4 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Ecommerce.Api;
 using Ecommerce.Api.Autenticacao;
@@ -9,6 +10,7 @@ using Ecommerce.Api.Vendas;
 using Ecommerce.Infrastructure;
 using Ecommerce.Infrastructure.Identidade;
 using FluentValidation;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
@@ -57,6 +59,7 @@ try
     builder.Services.AddScoped<IValidator<LoginRequisicao>, LoginRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CriarCategoriaRequisicao>, CriarCategoriaRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<RenomearCategoriaRequisicao>, RenomearCategoriaRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<BuscarProdutosRequisicao>, BuscarProdutosRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CriarProdutoRequisicao>, CriarProdutoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AtualizarProdutoRequisicao>, AtualizarProdutoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AdicionarVarianteRequisicao>, AdicionarVarianteRequisicaoValidador>();
@@ -65,6 +68,7 @@ try
     builder.Services.AddScoped<IValidator<AtualizarQuantidadeRequisicao>, AtualizarQuantidadeRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<MarcarComoEnviadoRequisicao>, MarcarComoEnviadoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CalcularFreteRequisicao>, CalcularFreteRequisicaoValidador>();
+    builder.Services.AddScoped<IValidator<CheckoutRequisicao>, CheckoutRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<CriarEnderecoRequisicao>, CriarEnderecoRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<AtualizarPerfilRequisicao>, AtualizarPerfilRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<TrocarSenhaRequisicao>, TrocarSenhaRequisicaoValidador>();
@@ -72,32 +76,67 @@ try
     builder.Services.AddScoped<IValidator<CriarCupomRequisicao>, CriarCupomRequisicaoValidador>();
     builder.Services.AddScoped<IValidator<ValidarCupomRequisicao>, ValidarCupomRequisicaoValidador>();
 
+    // Atrás do Nginx (seção 1.4 do plano) a conexão chega do proxy, não do cliente — sem isso
+    // todo limite "por IP" vira um limite só. X-Forwarded-For só é aceito de quem estiver em
+    // ProxyReverso:Proxies/Redes (loopback já vem confiável por padrão); de qualquer outro
+    // remetente o header é ignorado, senão o cliente escolheria o próprio IP.
+    builder.Services.Configure<ForwardedHeadersOptions>(opcoes =>
+    {
+        opcoes.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+        foreach (var proxy in builder.Configuration.GetSection("ProxyReverso:Proxies").Get<string[]>() ?? [])
+        {
+            opcoes.KnownProxies.Add(IPAddress.Parse(proxy));
+        }
+
+        foreach (var rede in builder.Configuration.GetSection("ProxyReverso:Redes").Get<string[]>() ?? [])
+        {
+            opcoes.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(rede));
+        }
+    });
+
+    var chaveDoFrontend = builder.Configuration["Frontend:ChaveDeConfianca"];
+    var limitesConfigurados = builder.Configuration.GetSection("RateLimiting");
+
+    // Em Development (ambiente também usado pelos testes de integração via
+    // WebApplicationFactory) o padrão é bem mais alto — vários testes que sobem o mesmo host
+    // fazem várias chamadas em segundos, e não queremos derrubar a suíte por 429.
+    // RateLimiting:<politica> sobrescreve os dois (usado pelos testes do próprio rate limit).
+    int LimitePorMinuto(string politica, int limiteEmProducao) =>
+        limitesConfigurados.GetValue<int?>(politica)
+        ?? (builder.Environment.IsDevelopment() ? 1000 : limiteEmProducao);
+
     builder.Services.AddRateLimiter(opcoes =>
     {
         opcoes.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-        // Login/registro: superfície clássica de brute-force/enumeração de e-mail. Em
-        // Development (ambiente também usado pelos testes de integração via
-        // WebApplicationFactory) o limite é bem mais alto — vários testes que sobem o mesmo host
-        // fazem várias chamadas de auth em segundos, e não queremos derrubar a suíte por 429.
-        var limiteAutenticacao = builder.Environment.IsDevelopment() ? 1000 : 10;
-
-        opcoes.AddFixedWindowLimiter(PoliticasDeRateLimiting.Autenticacao, janela =>
-        {
-            janela.PermitLimit = limiteAutenticacao;
-            janela.Window = TimeSpan.FromMinutes(1);
-            janela.QueueLimit = 0;
-        });
-
-        // Por IP: sem isso, a validação pública de cupom vira oráculo pra testar códigos em massa.
-        opcoes.AddPolicy(PoliticasDeRateLimiting.Cupons, contexto => RateLimitPartition.GetFixedWindowLimiter(
-            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
-            _ => new FixedWindowRateLimiterOptions
+        // Uma janela por cliente (ver IdentificadorDeCliente) — nunca global: com uma janela só,
+        // um atacante esgotaria o limite e bloquearia o login/busca de todo mundo.
+        void AdicionarPoliticaPorCliente(string politica, int limitePorMinuto) =>
+            opcoes.AddPolicy(politica, contexto =>
             {
-                PermitLimit = builder.Environment.IsDevelopment() ? 1000 : 20,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-            }));
+                var cliente = IdentificadorDeCliente.Identificar(contexto, chaveDoFrontend);
+
+                return cliente is null
+                    ? RateLimitPartition.GetNoLimiter(string.Empty)
+                    : RateLimitPartition.GetFixedWindowLimiter(cliente, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = limitePorMinuto,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    });
+            });
+
+        // Login/registro: superfície clássica de brute-force/enumeração de e-mail. Força bruta
+        // distribuída contra uma conta só é coberta pelo lockout do Identity (InjecaoDeDependencia).
+        AdicionarPoliticaPorCliente(PoliticasDeRateLimiting.Autenticacao, LimitePorMinuto(PoliticasDeRateLimiting.Autenticacao, 10));
+
+        // Sem isso, a validação pública de cupom vira oráculo pra testar códigos em massa.
+        AdicionarPoliticaPorCliente(PoliticasDeRateLimiting.Cupons, LimitePorMinuto(PoliticasDeRateLimiting.Cupons, 20));
+
+        // Busca com termo é full scan (LIKE '%x%', ver ServicoProdutos.BuscarAsync) — num banco de
+        // 1 OCPU, poucas dezenas de buscas simultâneas já enfileiram tudo.
+        AdicionarPoliticaPorCliente(PoliticasDeRateLimiting.BuscaDeProdutos, LimitePorMinuto(PoliticasDeRateLimiting.BuscaDeProdutos, 60));
     });
 
     builder.Services
@@ -128,6 +167,9 @@ try
     var app = builder.Build();
 
     await SementeDePapeis.GarantirPapeisAsync(app.Services);
+
+    // Primeiro do pipeline: tudo depois (logs, HTTPS, rate limit) precisa ver o IP/esquema reais.
+    app.UseForwardedHeaders();
 
     app.UseExceptionHandler();
 

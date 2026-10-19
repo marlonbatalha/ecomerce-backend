@@ -216,11 +216,13 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
             query = query.Where(p => p.Ativo && p.Variantes.Any(v => v.Ativo && v.Estoque > 0));
         }
 
+        // Id como desempate: sem ordem total, produtos com o mesmo preço trocam de posição entre
+        // uma consulta e outra e o OFFSET repete ou pula itens ao mudar de página.
         query = consulta.Ordenacao switch
         {
-            OrdenacaoProduto.PrecoAsc => query.OrderBy(p => p.Preco),
-            OrdenacaoProduto.PrecoDesc => query.OrderByDescending(p => p.Preco),
-            _ => query.OrderByDescending(p => p.CriadoEmUtc),
+            OrdenacaoProduto.PrecoAsc => query.OrderBy(p => p.Preco).ThenBy(p => p.Id),
+            OrdenacaoProduto.PrecoDesc => query.OrderByDescending(p => p.Preco).ThenBy(p => p.Id),
+            _ => query.OrderByDescending(p => p.CriadoEmUtc).ThenBy(p => p.Id),
         };
 
         var totalItens = await query.CountAsync(ct);

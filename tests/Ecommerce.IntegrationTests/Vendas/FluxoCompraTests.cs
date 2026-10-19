@@ -100,12 +100,18 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         respostaAdicionar.StatusCode.Should().Be(HttpStatusCode.OK);
         var carrinho = await respostaAdicionar.Content.ReadFromJsonAsync<CarrinhoDto>();
         carrinho!.Total.Should().Be(200m);
+        carrinho.Itens.Single().EstoqueDisponivel.Should().Be(10);
+        carrinho.Itens.Single().ProdutoSlug.Should().NotBeNullOrWhiteSpace();
 
-        var respostaCheckout = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var respostaCheckout = await cliente.FinalizarCompraAsync();
         respostaCheckout.StatusCode.Should().Be(HttpStatusCode.OK);
         var checkout = await respostaCheckout.Content.ReadFromJsonAsync<CheckoutResultado>();
         checkout!.Pedido.Status.Should().Be(StatusPedido.Pendente);
-        checkout.Pedido.Total.Should().Be(200m);
+        checkout.Pedido.Total.Should().Be(200m + AuxiliaresDeTeste.FretePac);
+        checkout.Pedido.MetodoDeEnvio.Should().Be("PAC");
+        checkout.Pedido.ValorFrete.Should().Be(AuxiliaresDeTeste.FretePac);
+        checkout.Pedido.Entrega!.Cep.Should().Be("01310-100");
+        checkout.Pedido.Entrega.Cidade.Should().Be("São Paulo");
 
         // Carrinho foi esvaziado no checkout.
         var respostaCarrinhoDepois = await cliente.GetAsync("/api/v1/carrinho");
@@ -125,6 +131,10 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         var respostaPedido = await cliente.GetAsync($"/api/v1/pedidos/{checkout.Pedido.Id}");
         var pedidoConfirmado = await respostaPedido.Content.ReadFromJsonAsync<PedidoDto>();
         pedidoConfirmado!.Status.Should().Be(StatusPedido.PagamentoConfirmado);
+
+        // Pago: o cliente não cancela mais sozinho (não haveria estorno).
+        var respostaCancelarPago = await cliente.PostAsync($"/api/v1/pedidos/{checkout.Pedido.Id}/cancelar", null);
+        respostaCancelarPago.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         // Admin avança o pedido.
         var respostaEnviar = await clienteAdmin.PostAsJsonAsync($"/api/v1/pedidos/{checkout.Pedido.Id}/enviar", new { codigoRastreio = "BR123456789" });
@@ -160,7 +170,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
     {
         using var cliente = await CriarClienteLogadoAsync();
 
-        var resposta = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var resposta = await cliente.FinalizarCompraAsync();
 
         resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -179,7 +189,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         await clienteAdmin.PutAsJsonAsync(
             $"/api/v1/produtos/{produtoId}/variantes/{varianteId}/estoque", new { novoEstoque = 0, motivo = "Ajuste de teste" });
 
-        var respostaCheckout = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var respostaCheckout = await cliente.FinalizarCompraAsync();
 
         respostaCheckout.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -218,7 +228,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
 
         using var cliente = await CriarClienteLogadoAsync();
         await cliente.PostAsJsonAsync("/api/v1/carrinho/itens", new { varianteDeProdutoId = varianteId, quantidade = 1 });
-        var respostaCheckout = await cliente.PostAsync("/api/v1/pedidos/checkout", null);
+        var respostaCheckout = await cliente.FinalizarCompraAsync();
         var checkout = await respostaCheckout.Content.ReadFromJsonAsync<CheckoutResultado>();
 
         var respostaListaAdmin = await clienteAdmin.GetAsync("/api/v1/pedidos/admin");
@@ -238,5 +248,85 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         var resposta = await cliente.GetAsync("/api/v1/pedidos/admin");
 
         resposta.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Checkout_SemEnderecoOuMetodoDeEnvio_DeveRetornarBadRequest()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var (_, varianteId) = await CriarProdutoComEstoqueAsync(clienteAdmin);
+        using var cliente = await CriarClienteLogadoAsync();
+        await cliente.AdicionarAoCarrinhoAsync(varianteId);
+
+        var semCorpo = await cliente.PostAsync("/api/v1/pedidos/checkout", JsonContent.Create(new { }));
+
+        semCorpo.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await cliente.GetFromJsonAsync<CarrinhoDto>("/api/v1/carrinho"))!.Itens.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Checkout_ComEnderecoDeOutroUsuario_DeveRecusarSemMexerNoEstoque()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var (produtoId, varianteId) = await CriarProdutoComEstoqueAsync(clienteAdmin, estoque: 5);
+
+        using var outro = await CriarClienteLogadoAsync();
+        var enderecoDoOutro = await outro.CriarEnderecoAsync();
+
+        using var cliente = await CriarClienteLogadoAsync();
+        await cliente.AdicionarAoCarrinhoAsync(varianteId, 2);
+
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId = enderecoDoOutro, metodoDeEnvio = "PAC" });
+
+        resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await resposta.Content.ReadAsStringAsync()).Should().Contain("Endereço de entrega não encontrado");
+        var produto = await clienteAdmin.GetFromJsonAsync<ProdutoDto>($"/api/v1/produtos/{produtoId}");
+        produto!.Variantes.Single().Estoque.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Checkout_ComMetodoDeEnvioInexistente_DeveRetornarBadRequest()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var (_, varianteId) = await CriarProdutoComEstoqueAsync(clienteAdmin);
+        using var cliente = await CriarClienteLogadoAsync();
+        await cliente.AdicionarAoCarrinhoAsync(varianteId);
+        var enderecoId = await cliente.CriarEnderecoAsync();
+
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "TELETRANSPORTE" });
+
+        resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await resposta.Content.ReadAsStringAsync()).Should().Contain("Método de envio indisponível");
+    }
+
+    [Fact]
+    public async Task Checkout_DeveGuardarCopiaDoEnderecoMesmoSeOClienteEditarDepois()
+    {
+        using var clienteAdmin = await CriarClienteAdminAsync();
+        var (_, varianteId) = await CriarProdutoComEstoqueAsync(clienteAdmin);
+        using var cliente = await CriarClienteLogadoAsync();
+        await cliente.AdicionarAoCarrinhoAsync(varianteId);
+        var enderecoId = await cliente.CriarEnderecoAsync();
+
+        var checkout = await (await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "sedex" }))
+            .Content.ReadFromJsonAsync<CheckoutResultado>();
+
+        (await cliente.PutAsJsonAsync($"/api/v1/conta/enderecos/{enderecoId}", new
+        {
+            rotulo = "Casa",
+            logradouro = "Rua Nova",
+            numero = "1",
+            complemento = (string?)null,
+            bairro = "Centro",
+            cidade = "Campinas",
+            estado = "SP",
+            cep = "13010-000",
+        })).EnsureSuccessStatusCode();
+
+        var pedido = await cliente.GetFromJsonAsync<PedidoDto>($"/api/v1/pedidos/{checkout!.Pedido.Id}");
+        pedido!.Entrega!.Logradouro.Should().Be("Av. Paulista");
+        pedido.Entrega.Cidade.Should().Be("São Paulo");
+        pedido.MetodoDeEnvio.Should().Be("SEDEX");
+        pedido.ValorFrete.Should().Be(34.90m);
     }
 }

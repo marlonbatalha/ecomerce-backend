@@ -22,7 +22,21 @@ public record ResultadoAutenticacao
     /// <summary>Usado, por exemplo, pra mesclar o carrinho anônimo no carrinho do usuário após o login (ver Fase 3 do plano).</summary>
     public Guid? UsuarioId { get; private init; }
 
+    /// <summary>
+    /// Renovação recusada só porque outra requisição acabou de renovar com o mesmo refresh token
+    /// (abas/requisições em paralelo) — não é reuso suspeito: a sessão continua válida e quem
+    /// chamou deve seguir com o token que já tem. Ver <c>ServicoAutenticacao.AtualizarTokenAsync</c>.
+    /// </summary>
+    public bool RenovacaoConcorrente { get; private init; }
+
     public static ResultadoAutenticacao ComFalha(string erro) => new() { Sucesso = false, Erro = erro };
+
+    public static ResultadoAutenticacao ComRenovacaoConcorrente() => new()
+    {
+        Sucesso = false,
+        RenovacaoConcorrente = true,
+        Erro = "Este refresh token acabou de ser renovado por outra requisição.",
+    };
 
     public static ResultadoAutenticacao ComSucesso(
         Guid usuarioId,
