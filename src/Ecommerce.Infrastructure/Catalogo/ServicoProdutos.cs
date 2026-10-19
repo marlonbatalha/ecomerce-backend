@@ -163,6 +163,7 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
             .AsNoTracking()
             .Include(p => p.Variantes)
             .Include(p => p.Imagens)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct);
 
         return produto is null ? null : MapearParaDto(produto);
@@ -174,6 +175,7 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
             .AsNoTracking()
             .Include(p => p.Variantes)
             .Include(p => p.Imagens)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Slug == slug, ct);
 
         return produto is null ? null : MapearParaDto(produto);
@@ -203,7 +205,10 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
 
         if (!string.IsNullOrWhiteSpace(consulta.Termo))
         {
-            query = query.Where(p => p.Nome.Contains(consulta.Termo));
+            // Coluna e termo na mesma forma normalizada: no Oracle LIKE diferencia maiúscula e
+            // acento. Continua O(n) (LIKE '%termo%' não usa B-tree) — ver plano, Oracle Text.
+            var termoParaBusca = NormalizadorDeTexto.ParaBusca(consulta.Termo);
+            query = query.Where(p => p.NomeParaBusca.Contains(termoParaBusca));
         }
 
         if (consulta.ApenasDisponiveis)
@@ -247,6 +252,7 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
         await contexto.Produtos
             .Include(p => p.Variantes)
             .Include(p => p.Imagens)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new ExcecaoDeDominio("Produto não encontrado.");
 

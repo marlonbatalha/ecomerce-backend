@@ -58,8 +58,5 @@ logs/
 # Arquivos de configuração do editor 
 *.sublime-workspace
 
-# Arquivos de Teste
-tests
-
 # Uploads de dev/staging (ArmazenamentoDeImagensLocal) — nunca commitar imagem enviada por usuário.
 src/Ecommerce.Api/wwwroot/uploads/

@@ -15,7 +15,8 @@ public class ConfiguracaoAjusteDeEstoque : IEntityTypeConfiguration<AjusteDeEsto
 
         builder.Property(a => a.Motivo).HasMaxLength(AjusteDeEstoque.TamanhoMaximoMotivo).IsRequired();
 
-        builder.HasIndex(a => a.VarianteDeProdutoId);
+        // Histórico de uma variante sai já ordenado por data do índice.
+        builder.HasIndex(a => new { a.VarianteDeProdutoId, a.CriadoEmUtc });
 
         builder.HasOne<Usuario>()
             .WithMany()

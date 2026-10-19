@@ -24,7 +24,9 @@ public class ConfiguracaoVarianteDeProduto : IEntityTypeConfiguration<VarianteDe
 
         builder.HasIndex(v => v.Sku).IsUnique();
 
-        builder.HasIndex(v => v.ProdutoId);
+        // Cobre a FK e o EXISTS da busca pública ("produto tem variante ativa com estoque"),
+        // respondido só pelo índice, sem ir na tabela.
+        builder.HasIndex(v => new { v.ProdutoId, v.Ativo, v.Estoque });
 
         // Token de concorrência otimista: o UPDATE do estoque só afeta a linha se o valor não
         // mudou desde a leitura — duas requisições de checkout concorrentes debitando a mesma

@@ -130,9 +130,9 @@ public class ServicoCarrinho(ContextoBancoDados contexto) : IServicoCarrinho
         var varianteIds = carrinho.Itens.Select(i => i.VarianteDeProdutoId).ToList();
         var variantes = await contexto.Set<VarianteDeProduto>()
             .Where(v => varianteIds.Contains(v.Id))
-            .ToListAsync(ct);
+            .ToDictionaryAsync(v => v.Id, ct);
 
-        var produtoIds = variantes.Select(v => v.ProdutoId).Distinct().ToList();
+        var produtoIds = variantes.Values.Select(v => v.ProdutoId).Distinct().ToList();
         var nomesProdutos = await contexto.Produtos
             .Where(p => produtoIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, p => p.Nome, ct);
@@ -140,8 +140,7 @@ public class ServicoCarrinho(ContextoBancoDados contexto) : IServicoCarrinho
         var itens = new List<ItemCarrinhoDto>();
         foreach (var item in carrinho.Itens)
         {
-            var variante = variantes.FirstOrDefault(v => v.Id == item.VarianteDeProdutoId);
-            if (variante is null)
+            if (!variantes.TryGetValue(item.VarianteDeProdutoId, out var variante))
             {
                 // Defensivo: produto/variante nunca é apagado de verdade (só inativado) hoje, mas
                 // não custa não quebrar a montagem do carrinho se isso mudar no futuro.

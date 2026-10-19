@@ -52,9 +52,11 @@ public class ServicoCategorias(ContextoBancoDados contexto) : IServicoCategorias
     {
         var todas = await contexto.Categorias.AsNoTracking().ToListAsync(ct);
 
-        return todas
-            .Where(c => c.CategoriaPaiId is null)
-            .Select(raiz => MapearParaDtoComFilhos(raiz, todas))
+        // Agrupa uma vez por pai (O(n)) em vez de varrer a lista inteira a cada nó (O(n²)).
+        var filhasPorPai = todas.ToLookup(c => c.CategoriaPaiId);
+
+        return filhasPorPai[null]
+            .Select(raiz => MapearParaDtoComFilhos(raiz, filhasPorPai))
             .ToList();
     }
 
@@ -71,11 +73,10 @@ public class ServicoCategorias(ContextoBancoDados contexto) : IServicoCategorias
     private static CategoriaDto MapearParaDto(Categoria categoria) =>
         new(categoria.Id, categoria.Nome, categoria.Slug, categoria.CategoriaPaiId, []);
 
-    private static CategoriaDto MapearParaDtoComFilhos(Categoria categoria, List<Categoria> todas)
+    private static CategoriaDto MapearParaDtoComFilhos(Categoria categoria, ILookup<Guid?, Categoria> filhasPorPai)
     {
-        var filhas = todas
-            .Where(c => c.CategoriaPaiId == categoria.Id)
-            .Select(filha => MapearParaDtoComFilhos(filha, todas))
+        var filhas = filhasPorPai[categoria.Id]
+            .Select(filha => MapearParaDtoComFilhos(filha, filhasPorPai))
             .ToList();
 
         return new CategoriaDto(categoria.Id, categoria.Nome, categoria.Slug, categoria.CategoriaPaiId, filhas);

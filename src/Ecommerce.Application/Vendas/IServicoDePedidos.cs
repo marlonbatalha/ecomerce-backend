@@ -18,7 +18,7 @@ public interface IServicoDePedidos
     /// <summary>Só retorna o pedido se pertencer a <paramref name="usuarioId"/> — evita IDOR entre clientes.</summary>
     Task<PedidoDto?> ObterDoUsuarioAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default);
 
-    Task<IReadOnlyCollection<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, CancellationToken ct = default);
+    Task<ResultadoPaginado<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, int pagina, int tamanhoPagina, CancellationToken ct = default);
 
     Task<PedidoDto> CancelarAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default);
 

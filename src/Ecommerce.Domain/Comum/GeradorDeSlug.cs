@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Ecommerce.Domain.Comum;
@@ -14,23 +12,7 @@ public static class GeradorDeSlug
 {
     public static string Gerar(string texto)
     {
-        var semAcentos = RemoverAcentos(texto.Trim().ToLowerInvariant());
+        var semAcentos = NormalizadorDeTexto.RemoverAcentos(texto.Trim().ToLowerInvariant());
         return Regex.Replace(semAcentos, "[^a-z0-9]+", "-").Trim('-');
-    }
-
-    private static string RemoverAcentos(string texto)
-    {
-        var normalizado = texto.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(normalizado.Length);
-
-        foreach (var c in normalizado)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(c);
-            }
-        }
-
-        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

@@ -27,8 +27,9 @@ public class PedidosController(IServicoDePedidos servicoDePedidos, IServicoCarri
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyCollection<PedidoResumoDto>>> Listar(CancellationToken ct) =>
-        Ok(await servicoDePedidos.ListarDoUsuarioAsync(ObterUsuarioId(), ct));
+    public async Task<ActionResult<ResultadoPaginado<PedidoResumoDto>>> Listar(
+        [FromQuery] int pagina = 1, [FromQuery] int tamanhoPagina = 20, CancellationToken ct = default) =>
+        Ok(await servicoDePedidos.ListarDoUsuarioAsync(ObterUsuarioId(), pagina, tamanhoPagina, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PedidoDto>> ObterPorId(Guid id, CancellationToken ct)

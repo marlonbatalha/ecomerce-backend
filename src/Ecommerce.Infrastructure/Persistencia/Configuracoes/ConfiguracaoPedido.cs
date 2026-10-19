@@ -17,7 +17,14 @@ public class ConfiguracaoPedido : IEntityTypeConfiguration<Pedido>
 
         builder.Property(p => p.CodigoRastreio).HasMaxLength(50);
 
-        builder.HasIndex(p => p.UsuarioId);
+        // (UsuarioId, CriadoEmUtc): "meus pedidos" já sai ordenado do índice (e cobre a FK).
+        // (Status, CriadoEmUtc) e (CriadoEmUtc): listagem admin com/sem filtro de status, sem
+        // full scan + sort — o primeiro gargalo que apareceria com volume de pedidos.
+        builder.HasIndex(p => new { p.UsuarioId, p.CriadoEmUtc });
+
+        builder.HasIndex(p => new { p.Status, p.CriadoEmUtc });
+
+        builder.HasIndex(p => p.CriadoEmUtc);
 
         builder.HasOne<Usuario>()
             .WithMany()

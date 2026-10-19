@@ -21,6 +21,12 @@ public class Produto : Entidade
     public string Nome { get; private set; } = null!;
 
     /// <summary>
+    /// <see cref="Nome"/> na forma de <see cref="NormalizadorDeTexto.ParaBusca"/> — é a coluna que a
+    /// busca pública filtra (busca sem diferenciar maiúscula/acento). Sempre acompanha o nome.
+    /// </summary>
+    public string NomeParaBusca { get; private set; } = null!;
+
+    /// <summary>
     /// Identificador amigável de URL (ex.: <c>/produtos/{slug}</c> no frontend) — gerado a partir do
     /// nome na criação (ver <see cref="GeradorDeSlug"/>) e **não muda** em <see cref="AtualizarDados"/>,
     /// diferente de <see cref="Categoria"/>: um produto já publicado pode ter link/SEO apontando pro
@@ -55,6 +61,7 @@ public class Produto : Entidade
         : base(id)
     {
         Nome = nome;
+        NomeParaBusca = NormalizadorDeTexto.ParaBusca(nome);
         Slug = slug;
         Descricao = descricao;
         Sku = sku;
@@ -86,6 +93,7 @@ public class Produto : Entidade
         GarantirPrecoValido(preco);
 
         Nome = nome.Trim();
+        NomeParaBusca = NormalizadorDeTexto.ParaBusca(Nome);
         Descricao = (descricao ?? string.Empty).Trim();
         Preco = preco;
     }

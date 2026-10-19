@@ -56,6 +56,31 @@ public class ProdutoEndpointsTests(FabricaDeAplicacaoTeste fabrica) : IClassFixt
     }
 
     [Fact]
+    public async Task Buscar_PorTermo_DeveIgnorarMaiusculasEAcentos()
+    {
+        using var admin = await CriarClienteAdminAsync();
+        var categoriaId = await CriarCategoriaAsync(admin, $"Categoria {Guid.NewGuid():N}");
+        var sufixo = Guid.NewGuid().ToString("N");
+
+        var produto = await (await admin.PostAsJsonAsync("/api/v1/produtos", new
+        {
+            nome = $"Camisá Pólo {sufixo}",
+            descricao = "",
+            sku = $"sku-{sufixo}",
+            preco = 50m,
+            categoriaId,
+        })).Content.ReadFromJsonAsync<ProdutoDto>();
+        (await admin.PostAsJsonAsync($"/api/v1/produtos/{produto!.Id}/variantes",
+            new { nome = "Único", sku = $"sku-var-{sufixo}", preco = 50m, estoque = 5 })).EnsureSuccessStatusCode();
+
+        using var cliente = CriarCliente();
+        var pagina = await cliente.GetFromJsonAsync<ResultadoPaginado<ProdutoResumoDto>>(
+            $"/api/v1/produtos?termo={Uri.EscapeDataString($"camisa   POLO {sufixo.ToUpperInvariant()}")}");
+
+        pagina!.Itens.Should().ContainSingle(p => p.Id == produto.Id);
+    }
+
+    [Fact]
     public async Task Criar_SemAutenticacao_DeveRetornarUnauthorized()
     {
         using var cliente = CriarCliente();

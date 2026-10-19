@@ -15,10 +15,21 @@ public class ProdutoTests
         var produto = CriarProdutoValido();
 
         produto.Nome.Should().Be("Camiseta Básica");
+        produto.NomeParaBusca.Should().Be("CAMISETA BASICA");
         produto.Sku.Should().Be("CAMISETA-BASICA");
         produto.Preco.Should().Be(79.90m);
         produto.Ativo.Should().BeTrue();
         produto.Variantes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AtualizarDados_DeveAtualizarNomeParaBusca()
+    {
+        var produto = CriarProdutoValido();
+
+        produto.AtualizarDados("Calça Jeans  Slim", "desc", 120m);
+
+        produto.NomeParaBusca.Should().Be("CALCA JEANS SLIM");
     }
 
     [Theory]

@@ -131,15 +131,21 @@ public class ServicoDePedidos(
         return pedido is null || pedido.UsuarioId != usuarioId ? null : MapearParaDto(pedido, await ObterUrlPagamentoAsync(pedido, ct));
     }
 
-    public async Task<IReadOnlyCollection<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, CancellationToken ct = default)
+    public async Task<ResultadoPaginado<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, int pagina, int tamanhoPagina, CancellationToken ct = default)
     {
-        var pedidos = await contexto.Pedidos.AsNoTracking()
-            .Include(p => p.Itens)
-            .Where(p => p.UsuarioId == usuarioId)
+        var paginaValida = Math.Max(pagina, 1);
+        var tamanhoValido = Math.Clamp(tamanhoPagina, 1, 100);
+
+        var query = contexto.Pedidos.AsNoTracking().Include(p => p.Itens).Where(p => p.UsuarioId == usuarioId);
+
+        var totalItens = await query.CountAsync(ct);
+        var pedidos = await query
             .OrderByDescending(p => p.CriadoEmUtc)
+            .Skip((paginaValida - 1) * tamanhoValido)
+            .Take(tamanhoValido)
             .ToListAsync(ct);
 
-        return pedidos.Select(MapearParaResumoDto).ToList();
+        return new ResultadoPaginado<PedidoResumoDto>(pedidos.Select(MapearParaResumoDto).ToList(), paginaValida, tamanhoValido, totalItens);
     }
 
     public async Task<ResultadoPaginado<PedidoResumoDto>> ListarTodosAsync(StatusPedido? status, int pagina, int tamanhoPagina, CancellationToken ct = default)
@@ -290,12 +296,14 @@ public class ServicoDePedidos(
     private async Task DevolverEstoqueAsync(Pedido pedido, CancellationToken ct)
     {
         var varianteIds = pedido.Itens.Select(i => i.VarianteDeProdutoId).ToList();
-        var variantes = await contexto.Set<VarianteDeProduto>().Where(v => varianteIds.Contains(v.Id)).ToListAsync(ct);
+        var variantes = await contexto.Set<VarianteDeProduto>().Where(v => varianteIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, ct);
 
         foreach (var item in pedido.Itens)
         {
-            var variante = variantes.FirstOrDefault(v => v.Id == item.VarianteDeProdutoId);
-            variante?.AjustarEstoque(variante.Estoque + item.Quantidade);
+            if (variantes.TryGetValue(item.VarianteDeProdutoId, out var variante))
+            {
+                variante.AjustarEstoque(variante.Estoque + item.Quantidade);
+            }
         }
     }
 

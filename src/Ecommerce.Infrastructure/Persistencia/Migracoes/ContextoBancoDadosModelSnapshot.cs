@@ -99,6 +99,11 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasMaxLength(150)
                         .HasColumnType("NVARCHAR2(150)");
 
+                    b.Property<string>("NomeParaBusca")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)");
+
                     b.Property<decimal>("Preco")
                         .HasPrecision(18, 2)
                         .HasColumnType("DECIMAL(18,2)");
@@ -115,13 +120,15 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoriaId");
-
                     b.HasIndex("Sku")
                         .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();
+
+                    b.HasIndex("Ativo", "CriadoEmUtc");
+
+                    b.HasIndex("CategoriaId", "Preco");
 
                     b.ToTable("CAT_Produtos", (string)null);
                 });
@@ -158,10 +165,10 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProdutoId");
-
                     b.HasIndex("Sku")
                         .IsUnique();
+
+                    b.HasIndex("ProdutoId", "Ativo", "Estoque");
 
                     b.ToTable("CAT_VariantesDeProduto", (string)null);
                 });
@@ -254,7 +261,7 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasIndex("UsuarioId");
 
-                    b.HasIndex("VarianteDeProdutoId");
+                    b.HasIndex("VarianteDeProdutoId", "CriadoEmUtc");
 
                     b.ToTable("EST_AjustesDeEstoque", (string)null);
                 });
@@ -287,6 +294,8 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("RAW(16)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExpiraEmUtc");
 
                     b.HasIndex("HashToken")
                         .IsUnique();
@@ -502,7 +511,11 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UsuarioId");
+                    b.HasIndex("CriadoEmUtc");
+
+                    b.HasIndex("Status", "CriadoEmUtc");
+
+                    b.HasIndex("UsuarioId", "CriadoEmUtc");
 
                     b.ToTable("VND_Pedidos", (string)null);
                 });

@@ -22,6 +22,9 @@ public class ConfiguracaoTokenAtualizacao : IEntityTypeConfiguration<TokenAtuali
 
         builder.HasIndex(t => t.UsuarioId);
 
+        // Pro job de limpeza de tokens expirados (DELETE ... WHERE ExpiraEmUtc < :agora).
+        builder.HasIndex(t => t.ExpiraEmUtc);
+
         builder.Property(t => t.SubstituidoPorHashToken).HasMaxLength(200);
 
         // Sem navigation property pro Usuario (Domain não conhece o tipo de Infrastructure) —

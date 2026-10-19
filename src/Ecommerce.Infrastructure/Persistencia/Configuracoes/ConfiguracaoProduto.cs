@@ -16,6 +16,10 @@ public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
             .HasMaxLength(Produto.TamanhoMaximoNome)
             .IsRequired();
 
+        builder.Property(p => p.NomeParaBusca)
+            .HasMaxLength(Produto.TamanhoMaximoNome)
+            .IsRequired();
+
         builder.Property(p => p.Slug)
             .HasMaxLength(Produto.TamanhoMaximoNome)
             .IsRequired();
@@ -34,7 +38,14 @@ public class ConfiguracaoProduto : IEntityTypeConfiguration<Produto>
 
         builder.HasIndex(p => p.Slug).IsUnique();
 
-        builder.HasIndex(p => p.CategoriaId);
+        // Índices da busca pública (ServicoProdutos.BuscarAsync): (CategoriaId, Preco) atende o
+        // filtro por categoria com/sem faixa de preço e também serve de índice da FK (coluna
+        // líder); (Ativo, CriadoEmUtc) atende a ordenação padrão "mais recente" sem full scan.
+        // NomeParaBusca fica sem índice de propósito: a busca é LIKE '%termo%', que B-tree não
+        // acelera — o caminho pra O(log n) ali é Oracle Text (ver plano).
+        builder.HasIndex(p => new { p.CategoriaId, p.Preco });
+
+        builder.HasIndex(p => new { p.Ativo, p.CriadoEmUtc });
 
         // Sem navigation property pra Categoria (agregados diferentes) — FK só de banco.
         // Restrict: não deixa apagar uma categoria que ainda tem produto (mesma lógica do
