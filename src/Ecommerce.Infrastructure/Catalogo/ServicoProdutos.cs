@@ -186,7 +186,7 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
         var pagina = Math.Max(consulta.Pagina, 1);
         var tamanhoPagina = Math.Clamp(consulta.TamanhoPagina, 1, 100);
 
-        var query = contexto.Produtos.AsNoTracking().Include(p => p.Imagens).AsQueryable();
+        var query = contexto.Produtos.AsNoTracking();
 
         if (consulta.CategoriaId is { } categoriaId)
         {
@@ -227,12 +227,22 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
 
         var totalItens = await query.CountAsync(ct);
 
-        var produtos = await query
+        // Projeção direto no DTO, em vez de carregar a entidade: a listagem não usa a Descrição
+        // (NCLOB — no Oracle cada LOB custa uma ida e volta a mais por linha) nem as imagens além da
+        // primeira (o Include trazia todas). Medido com 100 itens: ver plano, teste de desempenho.
+        var itens = await query
             .Skip((pagina - 1) * tamanhoPagina)
             .Take(tamanhoPagina)
+            .Select(p => new ProdutoResumoDto(
+                p.Id,
+                p.Nome,
+                p.Slug,
+                p.Sku,
+                p.Preco,
+                p.CategoriaId,
+                p.Ativo,
+                p.Imagens.OrderBy(i => i.Ordem).Select(i => i.Url).FirstOrDefault()))
             .ToListAsync(ct);
-
-        var itens = produtos.Select(MapearParaResumoDto).ToList();
 
         return new ResultadoPaginado<ProdutoResumoDto>(itens, pagina, tamanhoPagina, totalItens);
     }
@@ -287,14 +297,4 @@ public class ServicoProdutos(ContextoBancoDados contexto, IArmazenamentoDeImagen
         produto.Ativo,
         produto.Variantes.Select(v => new VarianteDto(v.Id, v.Nome, v.Sku, v.Preco, v.Estoque, v.Ativo)).ToList(),
         produto.Imagens.OrderBy(i => i.Ordem).Select(i => new ImagemDto(i.Id, i.Url, i.Ordem)).ToList());
-
-    private static ProdutoResumoDto MapearParaResumoDto(Produto produto) => new(
-        produto.Id,
-        produto.Nome,
-        produto.Slug,
-        produto.Sku,
-        produto.Preco,
-        produto.CategoriaId,
-        produto.Ativo,
-        produto.Imagens.OrderBy(i => i.Ordem).Select(i => i.Url).FirstOrDefault());
 }

@@ -5,9 +5,11 @@ namespace Ecommerce.Application.Vendas;
 /// <summary>
 /// <paramref name="UrlPagamento"/> permite ao cliente retomar o pagamento de um pedido ainda pendente.
 /// <paramref name="Entrega"/> é null só em pedidos de antes da entrega existir no checkout.
+/// <paramref name="UsuarioId"/> deixa o admin chegar no cliente (<c>GET /clientes/{id}</c>).
 /// </summary>
 public record PedidoDto(
     Guid Id,
+    Guid UsuarioId,
     StatusPedido Status,
     DateTime CriadoEmUtc,
     string? CodigoRastreio,

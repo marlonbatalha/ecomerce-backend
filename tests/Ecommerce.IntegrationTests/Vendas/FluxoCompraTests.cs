@@ -6,6 +6,7 @@ using System.Text;
 using Ecommerce.Api.Autenticacao;
 using Ecommerce.Application.Catalogo;
 using Ecommerce.Application.Comum;
+using Ecommerce.Application.Contas;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Domain.Vendas;
 using Ecommerce.Infrastructure.Vendas;
@@ -324,7 +325,12 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         })).EnsureSuccessStatusCode();
 
         var pedido = await cliente.GetFromJsonAsync<PedidoDto>($"/api/v1/pedidos/{checkout!.Pedido.Id}");
-        pedido!.Entrega!.Logradouro.Should().Be("Av. Paulista");
+        pedido!.UsuarioId.Should().NotBeEmpty();
+        pedido.Entrega!.Logradouro.Should().Be("Av. Paulista");
+
+        // O admin chega no cliente a partir do pedido.
+        var clienteDoPedido = await clienteAdmin.GetFromJsonAsync<ClienteResumoDto>($"/api/v1/clientes/{pedido.UsuarioId}");
+        clienteDoPedido!.Email.Should().Contain("@");
         pedido.Entrega.Cidade.Should().Be("São Paulo");
         pedido.MetodoDeEnvio.Should().Be("SEDEX");
         pedido.ValorFrete.Should().Be(34.90m);

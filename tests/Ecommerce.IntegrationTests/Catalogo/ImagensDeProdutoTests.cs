@@ -78,6 +78,12 @@ public class ImagensDeProdutoTests(FabricaDeAplicacaoTeste fabrica) : IClassFixt
         resposta.StatusCode.Should().Be(HttpStatusCode.OK);
         var atualizado = await resposta.Content.ReadFromJsonAsync<ProdutoDto>();
         atualizado!.Imagens.Select(i => i.Id).Should().Equal(novaOrdem);
+
+        // A busca projeta só a primeira imagem (subconsulta por Ordem) — tem que seguir a nova ordem.
+        var novaPrincipal = comDuas.Imagens.Single(i => i.Id == novaOrdem[0]).Url;
+        var busca = await admin.GetFromJsonAsync<Ecommerce.Application.Comum.ResultadoPaginado<ProdutoResumoDto>>(
+            $"/api/v1/produtos?termo={Uri.EscapeDataString(produto.Nome)}");
+        busca!.Itens.Should().ContainSingle().Which.ImagemPrincipalUrl.Should().Be(novaPrincipal);
     }
 
     [Fact]

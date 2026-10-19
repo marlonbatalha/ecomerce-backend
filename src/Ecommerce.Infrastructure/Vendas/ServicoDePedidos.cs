@@ -368,6 +368,7 @@ public class ServicoDePedidos(
 
     private static PedidoDto MapearParaDto(Pedido pedido, string? urlPagamento = null) => new(
         pedido.Id,
+        pedido.UsuarioId,
         pedido.Status,
         pedido.CriadoEmUtc,
         pedido.CodigoRastreio,
