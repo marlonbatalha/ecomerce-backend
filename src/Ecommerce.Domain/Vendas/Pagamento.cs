@@ -3,9 +3,9 @@ using Ecommerce.Domain.Comum;
 namespace Ecommerce.Domain.Vendas;
 
 /// <summary>
-/// Registro de uma cobrança junto ao gateway de pagamento (Mercado Pago — ou o fake em dev, ver
-/// <c>IServicoDePagamento</c>). Guarda só referências externas e o status — nunca dado de cartão
-/// (isso fica 100% no gateway). <see cref="Aprovar"/>/<see cref="Recusar"/>/<see cref="Estornar"/>
+/// Registro de uma cobrança Pix ou boleto junto ao gateway (Mercado Pago, ou o fake em dev; ver
+/// <c>IServicoDePagamento</c>). Guarda as referências externas, o status e o que o cliente precisa
+/// para pagar (código Pix copia e cola, linha digitável, link do boleto, validade). <see cref="Aprovar"/>/<see cref="Recusar"/>/<see cref="Estornar"/>
 /// são idempotentes: reaplicar o mesmo resultado não lança erro (o gateway pode reenviar o mesmo
 /// evento de webhook).
 /// </summary>
@@ -15,15 +15,31 @@ public class Pagamento : Entidade
 
     public const int TamanhoMaximoUrlPagamento = 1000;
 
+    /// <summary>O "copia e cola" do Pix (padrão EMV do Banco Central) costuma ter 200 a 500 caracteres.</summary>
+    public const int TamanhoMaximoCodigoPix = 1000;
+
+    public const int TamanhoMaximoLinhaDigitavel = 100;
+
     public Guid PedidoId { get; private set; }
 
-    /// <summary>Id da cobrança no gateway (no Mercado Pago, o id da "preference" do Checkout Pro).</summary>
+    public MetodoDePagamento Metodo { get; private set; }
+
+    /// <summary>Id da cobrança no gateway (no Mercado Pago, o id do pagamento em <c>/v1/payments</c>).</summary>
     public string ReferenciaExterna { get; private set; } = null!;
 
-    /// <summary>Página do gateway onde o cliente paga — null quando o gateway não tem uma (fake).</summary>
+    /// <summary>Página do gateway com as instruções (QR do Pix ou o boleto). Null no gateway fake.</summary>
     public string? UrlPagamento { get; private set; }
 
-    /// <summary>Id do pagamento efetivo no gateway — só conhecido quando o webhook chega.</summary>
+    /// <summary>Pix "copia e cola"; o QR Code é a imagem deste mesmo texto. Só em Pix.</summary>
+    public string? CodigoPix { get; private set; }
+
+    /// <summary>Linha digitável do boleto. Só em boleto, e só quando o gateway a informa.</summary>
+    public string? LinhaDigitavel { get; private set; }
+
+    /// <summary>Depois disso o gateway cancela a cobrança e o pedido é recusado (estoque volta).</summary>
+    public DateTime? ExpiraEmUtc { get; private set; }
+
+    /// <summary>Id do pagamento efetivo no gateway. No Mercado Pago é o mesmo da referência externa.</summary>
     public string? IdTransacao { get; private set; }
 
     public decimal Valor { get; private set; }
@@ -36,19 +52,26 @@ public class Pagamento : Entidade
     {
     }
 
-    private Pagamento(Guid id, Guid pedidoId, string referenciaExterna, string? urlPagamento, decimal valor)
+    private Pagamento(Guid id, Guid pedidoId, MetodoDePagamento metodo, string referenciaExterna, decimal valor, InstrucoesDaCobranca instrucoes)
         : base(id)
     {
         PedidoId = pedidoId;
+        Metodo = metodo;
         ReferenciaExterna = referenciaExterna;
-        UrlPagamento = urlPagamento;
+        UrlPagamento = instrucoes.UrlPagamento;
+        CodigoPix = instrucoes.CodigoPix;
+        LinhaDigitavel = instrucoes.LinhaDigitavel;
+        ExpiraEmUtc = instrucoes.ExpiraEmUtc;
         Valor = valor;
         Status = StatusPagamento.Pendente;
         CriadoEmUtc = DateTime.UtcNow;
     }
 
-    public static Pagamento Criar(Guid pedidoId, string referenciaExterna, decimal valor, string? urlPagamento = null)
+    public static Pagamento Criar(
+        Guid pedidoId, MetodoDePagamento metodo, string referenciaExterna, decimal valor, InstrucoesDaCobranca? instrucoes = null)
     {
+        instrucoes ??= InstrucoesDaCobranca.Nenhuma;
+
         if (string.IsNullOrWhiteSpace(referenciaExterna))
         {
             throw new ExcecaoDeDominio("A referência externa do pagamento é obrigatória.");
@@ -59,12 +82,22 @@ public class Pagamento : Entidade
             throw new ExcecaoDeDominio("O valor do pagamento precisa ser maior que zero.");
         }
 
-        if (urlPagamento is { Length: > TamanhoMaximoUrlPagamento })
+        if (instrucoes.UrlPagamento is { Length: > TamanhoMaximoUrlPagamento })
         {
             throw new ExcecaoDeDominio($"A URL de pagamento não pode ter mais de {TamanhoMaximoUrlPagamento} caracteres.");
         }
 
-        return new Pagamento(Guid.NewGuid(), pedidoId, referenciaExterna.Trim(), urlPagamento, valor);
+        if (instrucoes.CodigoPix is { Length: > TamanhoMaximoCodigoPix })
+        {
+            throw new ExcecaoDeDominio($"O código Pix não pode ter mais de {TamanhoMaximoCodigoPix} caracteres.");
+        }
+
+        if (instrucoes.LinhaDigitavel is { Length: > TamanhoMaximoLinhaDigitavel })
+        {
+            throw new ExcecaoDeDominio($"A linha digitável não pode ter mais de {TamanhoMaximoLinhaDigitavel} caracteres.");
+        }
+
+        return new Pagamento(Guid.NewGuid(), pedidoId, metodo, referenciaExterna.Trim(), valor, instrucoes);
     }
 
     public void RegistrarTransacao(string idTransacao)
@@ -119,4 +152,14 @@ public class Pagamento : Entidade
 
         Status = StatusPagamento.Estornado;
     }
+}
+
+/// <summary>O que o cliente precisa para pagar, devolvido pelo gateway ao criar a cobrança.</summary>
+public record InstrucoesDaCobranca(
+    string? UrlPagamento = null,
+    string? CodigoPix = null,
+    string? LinhaDigitavel = null,
+    DateTime? ExpiraEmUtc = null)
+{
+    public static readonly InstrucoesDaCobranca Nenhuma = new();
 }

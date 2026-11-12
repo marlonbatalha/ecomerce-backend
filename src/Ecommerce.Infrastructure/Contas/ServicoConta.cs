@@ -2,6 +2,7 @@ using Ecommerce.Application.Contas;
 using Ecommerce.Domain.Comum;
 using Ecommerce.Infrastructure.Identidade;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Ecommerce.Infrastructure.Contas;
 
@@ -25,6 +26,21 @@ public class ServicoConta(UserManager<Usuario> gerenciadorUsuarios) : IServicoCo
 
         usuario.Nome = comando.Nome.Trim();
 
+        if (comando.Cpf is not null)
+        {
+            var cpf = Cpf.Normalizar(comando.Cpf);
+            if (cpf != usuario.Cpf)
+            {
+                var emUso = await gerenciadorUsuarios.Users.AnyAsync(u => u.Cpf == cpf && u.Id != usuario.Id, ct);
+                if (emUso)
+                {
+                    throw new ExcecaoDeDominio("Este CPF já está cadastrado em outra conta.");
+                }
+
+                usuario.Cpf = cpf;
+            }
+        }
+
         var resultado = await gerenciadorUsuarios.UpdateAsync(usuario);
         if (!resultado.Succeeded)
         {
@@ -46,7 +62,7 @@ public class ServicoConta(UserManager<Usuario> gerenciadorUsuarios) : IServicoCo
         }
     }
 
-    private static PerfilDto MapearParaDto(Usuario usuario) => new(usuario.Id, usuario.Nome, usuario.Email ?? string.Empty);
+    private static PerfilDto MapearParaDto(Usuario usuario) => new(usuario.Id, usuario.Nome, usuario.Email ?? string.Empty, usuario.Cpf);
 
     private static string DescreverErros(IdentityResult resultado) =>
         string.Join(" ", resultado.Errors.Select(e => e.Description));

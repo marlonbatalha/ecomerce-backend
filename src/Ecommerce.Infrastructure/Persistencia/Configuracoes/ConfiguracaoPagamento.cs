@@ -28,5 +28,11 @@ public class ConfiguracaoPagamento : IEntityTypeConfiguration<Pagamento>
         builder.Property(p => p.Valor).HasPrecision(18, 2);
 
         builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
+
+        builder.Property(p => p.Metodo).HasConversion<string>().HasMaxLength(20);
+
+        builder.Property(p => p.CodigoPix).HasMaxLength(Pagamento.TamanhoMaximoCodigoPix);
+
+        builder.Property(p => p.LinhaDigitavel).HasMaxLength(Pagamento.TamanhoMaximoLinhaDigitavel);
     }
 }

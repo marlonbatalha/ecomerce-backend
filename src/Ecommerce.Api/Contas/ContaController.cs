@@ -19,7 +19,7 @@ public class ContaController(IServicoConta servicoConta) : ControllerBase
 
     [HttpPut("perfil")]
     public async Task<ActionResult<PerfilDto>> AtualizarPerfil(AtualizarPerfilRequisicao requisicao, CancellationToken ct) =>
-        Ok(await servicoConta.AtualizarPerfilAsync(new AtualizarPerfilComando(ObterUsuarioId(), requisicao.Nome), ct));
+        Ok(await servicoConta.AtualizarPerfilAsync(new AtualizarPerfilComando(ObterUsuarioId(), requisicao.Nome, requisicao.Cpf), ct));
 
     [HttpPost("trocar-senha")]
     public async Task<IActionResult> TrocarSenha(TrocarSenhaRequisicao requisicao, CancellationToken ct)

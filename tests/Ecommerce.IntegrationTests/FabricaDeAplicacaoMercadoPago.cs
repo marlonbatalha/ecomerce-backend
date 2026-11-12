@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Ecommerce.Application.Vendas;
 using Ecommerce.Infrastructure.Vendas;
 using Microsoft.AspNetCore.Hosting;
@@ -10,7 +11,7 @@ namespace Ecommerce.IntegrationTests;
 
 /// <summary>
 /// Sobe a API com <c>Pagamentos:Provedor = MercadoPago</c>, mas com a API do Mercado Pago
-/// simulada por <see cref="ApiMercadoPagoFalsa"/> — testa a integração (montagem da preference,
+/// simulada por <see cref="ApiMercadoPagoFalsa"/>: testa a integração (montagem do pagamento,
 /// webhook assinado, consulta do pagamento) sem rede.
 /// </summary>
 public class FabricaDeAplicacaoMercadoPago : FabricaDeAplicacaoTeste
@@ -44,15 +45,19 @@ public class FabricaDeAplicacaoMercadoPago : FabricaDeAplicacaoTeste
 }
 
 /// <summary>
-/// Responde como a API do Mercado Pago: <c>POST /checkout/preferences</c> devolve um init_point, e
-/// <c>GET /v1/payments/{id}</c> devolve o que o teste cadastrou em <see cref="Pagamentos"/>.
+/// Responde como a API do Mercado Pago: <c>POST /v1/payments</c> cria um Pix ou boleto pendente
+/// (no formato documentado), e <c>GET /v1/payments/{id}</c> devolve o que o teste cadastrou em
+/// <see cref="Pagamentos"/>. <see cref="RecusarProximaCriacao"/> simula um 400 do Mercado Pago.
 /// </summary>
 public class ApiMercadoPagoFalsa : HttpMessageHandler
 {
-    public ConcurrentQueue<string> PreferenciasRecebidas { get; } = new();
+    /// <summary>Corpo e chave de idempotência de cada <c>POST /v1/payments</c>.</summary>
+    public ConcurrentQueue<(string Corpo, string? ChaveDeIdempotencia)> PagamentosCriados { get; } = new();
 
     /// <summary>id do pagamento → (status, external_reference).</summary>
     public ConcurrentDictionary<string, (string Status, Guid PedidoId)> Pagamentos { get; } = new();
+
+    public volatile bool RecusarProximaCriacao;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage requisicao, CancellationToken ct)
     {
@@ -63,11 +68,57 @@ public class ApiMercadoPagoFalsa : HttpMessageHandler
 
         var caminho = requisicao.RequestUri!.AbsolutePath;
 
-        if (requisicao.Method == HttpMethod.Post && caminho == "/checkout/preferences")
+        if (requisicao.Method == HttpMethod.Post && caminho == "/v1/payments")
         {
-            PreferenciasRecebidas.Enqueue(await requisicao.Content!.ReadAsStringAsync(ct));
-            var id = $"pref-{Guid.NewGuid():N}";
-            return Json($$"""{"id":"{{id}}","init_point":"https://mp.teste/checkout?pref={{id}}","sandbox_init_point":"https://sandbox.mp.teste/checkout?pref={{id}}"}""");
+            var corpo = await requisicao.Content!.ReadAsStringAsync(ct);
+            requisicao.Headers.TryGetValues("X-Idempotency-Key", out var chaves);
+            PagamentosCriados.Enqueue((corpo, chaves?.FirstOrDefault()));
+
+            if (RecusarProximaCriacao)
+            {
+                RecusarProximaCriacao = false;
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent("""{"message":"Invalid user identification number","status":400}""", Encoding.UTF8, "application/json"),
+                };
+            }
+
+            var json = JsonDocument.Parse(corpo).RootElement;
+            var id = Random.Shared.NextInt64(10_000_000, 99_999_999);
+            var validade = json.GetProperty("date_of_expiration").GetString();
+
+            object resposta = json.GetProperty("payment_method_id").GetString() == "pix"
+                ? new
+                {
+                    id,
+                    status = "pending",
+                    status_detail = "pending_waiting_transfer",
+                    date_of_expiration = validade,
+                    point_of_interaction = new
+                    {
+                        type = "PIX",
+                        transaction_data = new
+                        {
+                            qr_code = $"00020126580014br.gov.bcb.pix{id}",
+                            qr_code_base64 = "iVBORw0KGgo=",
+                            ticket_url = $"https://www.mercadopago.com.br/payments/{id}/ticket",
+                        },
+                    },
+                }
+                : new
+                {
+                    id,
+                    status = "pending",
+                    status_detail = "pending_waiting_payment",
+                    date_of_expiration = validade,
+                    transaction_details = new
+                    {
+                        external_resource_url = $"https://www.mercadopago.com.br/payments/{id}/ticket",
+                        digitable_line = "23793.38128 60000.000003 00000.000400 1 84340000010000",
+                    },
+                };
+
+            return Json(JsonSerializer.Serialize(resposta));
         }
 
         if (requisicao.Method == HttpMethod.Get && caminho.StartsWith("/v1/payments/", StringComparison.Ordinal))

@@ -77,6 +77,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         var respostaLogin = await clienteRegistro.PostAsJsonAsync("/api/v1/auth/login", new { email, senha });
         var token = await respostaLogin.Content.ReadFromJsonAsync<TokenRespostaDto>();
         clienteRegistro.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token!.AccessToken);
+        await clienteRegistro.CadastrarCpfAsync();
 
         return clienteRegistro;
     }
@@ -277,7 +278,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         using var cliente = await CriarClienteLogadoAsync();
         await cliente.AdicionarAoCarrinhoAsync(varianteId, 2);
 
-        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId = enderecoDoOutro, metodoDeEnvio = "PAC" });
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId = enderecoDoOutro, metodoDeEnvio = "PAC", metodoDePagamento = "Pix" });
 
         resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await resposta.Content.ReadAsStringAsync()).Should().Contain("Endereço de entrega não encontrado");
@@ -294,7 +295,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         await cliente.AdicionarAoCarrinhoAsync(varianteId);
         var enderecoId = await cliente.CriarEnderecoAsync();
 
-        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "TELETRANSPORTE" });
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "TELETRANSPORTE", metodoDePagamento = "Pix" });
 
         resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await resposta.Content.ReadAsStringAsync()).Should().Contain("Método de envio indisponível");
@@ -309,7 +310,7 @@ public class FluxoCompraTests(FabricaDeAplicacaoTeste fabrica) : IClassFixture<F
         await cliente.AdicionarAoCarrinhoAsync(varianteId);
         var enderecoId = await cliente.CriarEnderecoAsync();
 
-        var checkout = await (await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "sedex" }))
+        var checkout = await (await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "sedex", metodoDePagamento = "Pix" }))
             .Content.ReadFromJsonAsync<CheckoutResultado>();
 
         (await cliente.PutAsJsonAsync($"/api/v1/conta/enderecos/{enderecoId}", new

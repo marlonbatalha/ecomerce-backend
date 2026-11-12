@@ -6,7 +6,7 @@ namespace Ecommerce.UnitTests.Vendas;
 
 public class PagamentoTests
 {
-    private static Pagamento CriarPagamentoValido() => Pagamento.Criar(Guid.NewGuid(), "ref-externa-123", 100m);
+    private static Pagamento CriarPagamentoValido() => Pagamento.Criar(Guid.NewGuid(), MetodoDePagamento.Pix, "ref-externa-123", 100m);
 
     [Fact]
     public void Criar_ComDadosValidos_DeveFicarPendente()
@@ -19,7 +19,33 @@ public class PagamentoTests
     [Fact]
     public void Criar_ComValorNaoPositivo_DeveLancarExcecaoDeDominio()
     {
-        var act = () => Pagamento.Criar(Guid.NewGuid(), "ref", 0m);
+        var act = () => Pagamento.Criar(Guid.NewGuid(), MetodoDePagamento.Pix, "ref", 0m);
+
+        act.Should().Throw<ExcecaoDeDominio>();
+    }
+
+    [Fact]
+    public void Criar_ComInstrucoes_DeveGuardarMetodoEInstrucoes()
+    {
+        var expira = new DateTime(2026, 11, 13, 12, 0, 0, DateTimeKind.Utc);
+
+        var pagamento = Pagamento.Criar(
+            Guid.NewGuid(), MetodoDePagamento.Boleto, "123", 50m,
+            new InstrucoesDaCobranca(UrlPagamento: "https://mp/boleto", LinhaDigitavel: "0019 0000", ExpiraEmUtc: expira));
+
+        pagamento.Metodo.Should().Be(MetodoDePagamento.Boleto);
+        pagamento.UrlPagamento.Should().Be("https://mp/boleto");
+        pagamento.LinhaDigitavel.Should().Be("0019 0000");
+        pagamento.CodigoPix.Should().BeNull();
+        pagamento.ExpiraEmUtc.Should().Be(expira);
+    }
+
+    [Fact]
+    public void Criar_ComCodigoPixLongoDemais_DeveLancarExcecaoDeDominio()
+    {
+        var act = () => Pagamento.Criar(
+            Guid.NewGuid(), MetodoDePagamento.Pix, "123", 50m,
+            new InstrucoesDaCobranca(CodigoPix: new string('0', Pagamento.TamanhoMaximoCodigoPix + 1)));
 
         act.Should().Throw<ExcecaoDeDominio>();
     }

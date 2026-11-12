@@ -18,9 +18,13 @@ public class PedidosController(IServicoDePedidos servicoDePedidos, IServicoCarri
     public async Task<ActionResult<CheckoutResultado>> Checkout(CheckoutRequisicao requisicao, CancellationToken ct)
     {
         var usuarioId = ObterUsuarioId();
+        // O validador já recusou valores fora de Pix/Boleto; aqui só converte.
+        CheckoutRequisicaoValidador.TentarLerMetodo(requisicao.MetodoDePagamento, out var metodoDePagamento);
         var carrinho = await servicoCarrinho.ObterOuCriarParaUsuarioAsync(usuarioId, ct);
         var resultado = await servicoDePedidos.FinalizarCompraAsync(
-            new FinalizarCompraComando(usuarioId, carrinho.Id, requisicao.EnderecoId, requisicao.MetodoDeEnvio, requisicao.CodigoCupom), ct);
+            new FinalizarCompraComando(
+                usuarioId, carrinho.Id, requisicao.EnderecoId, requisicao.MetodoDeEnvio, metodoDePagamento, requisicao.CodigoCupom),
+            ct);
 
         return Ok(resultado);
     }

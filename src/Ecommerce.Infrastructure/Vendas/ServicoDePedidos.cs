@@ -38,6 +38,18 @@ public class ServicoDePedidos(
             .FirstOrDefaultAsync(e => e.Id == comando.EnderecoId && e.UsuarioId == comando.UsuarioId, ct)
             ?? throw new ExcecaoDeDominio("Endereço de entrega não encontrado.");
 
+        // Pix e boleto exigem CPF no gateway: sem ele, falha antes de reservar estoque.
+        var pagador = await contexto.Users.AsNoTracking()
+            .Where(u => u.Id == comando.UsuarioId)
+            .Select(u => new { u.Email, u.Nome, u.Cpf })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new ExcecaoDeDominio("Usuário não encontrado.");
+
+        if (string.IsNullOrEmpty(pagador.Cpf))
+        {
+            throw new ExcecaoDeDominio("Cadastre seu CPF em Minha conta para pagar com Pix ou boleto.");
+        }
+
         var opcoesDeFrete = await servicoDeFrete.CalcularAsync(
             endereco.Cep,
             carrinho.Itens.Select(i => new ItemFreteConsulta(i.VarianteDeProdutoId, i.Quantidade)).ToList(),
@@ -103,16 +115,27 @@ public class ServicoDePedidos(
         // foi persistido (estoque, cupom e carrinho intactos). O inverso — gateway ok e o
         // SaveChanges falhar — deixa só uma cobrança órfã no gateway que ninguém recebeu o link.
         string? referenciaPagamento = null;
-        string? urlPagamento = null;
+        Pagamento? pagamento = null;
         if (pedido.Total > 0)
         {
-            var email = await contexto.Users.Where(u => u.Id == comando.UsuarioId).Select(u => u.Email).FirstOrDefaultAsync(ct);
             var cobranca = await servicoDePagamento.IniciarCobrancaAsync(
-                new SolicitacaoDeCobranca(pedido.Id, pedido.Total, $"Pedido #{FormatarNumero(pedido.Id)}", email), ct);
+                new SolicitacaoDeCobranca(
+                    pedido.Id,
+                    pedido.Total,
+                    $"Pedido #{FormatarNumero(pedido.Id)}",
+                    comando.MetodoDePagamento,
+                    new PagadorDaCobranca(
+                        pagador.Email ?? string.Empty,
+                        pagador.Nome,
+                        pagador.Cpf,
+                        new EnderecoDoPagador(endereco.Cep, endereco.Logradouro, endereco.Numero, endereco.Bairro, endereco.Cidade, endereco.Estado))),
+                ct);
 
             referenciaPagamento = cobranca.ReferenciaExterna;
-            urlPagamento = cobranca.UrlPagamento;
-            contexto.Add(Pagamento.Criar(pedido.Id, cobranca.ReferenciaExterna, pedido.Total, cobranca.UrlPagamento));
+            pagamento = Pagamento.Criar(pedido.Id, comando.MetodoDePagamento, cobranca.ReferenciaExterna, pedido.Total, cobranca.Instrucoes);
+            // No Mercado Pago a cobrança já é o pagamento: o id da transação é conhecido desde já.
+            pagamento.RegistrarTransacao(cobranca.ReferenciaExterna);
+            contexto.Add(pagamento);
         }
         else
         {
@@ -141,13 +164,14 @@ public class ServicoDePedidos(
             await notificacoes.PagamentoConfirmadoAsync(pedido.Id, ct);
         }
 
-        return new CheckoutResultado(MapearParaDto(pedido, urlPagamento), referenciaPagamento, urlPagamento);
+        var instrucoes = pagamento is null ? null : MapearInstrucoes(pagamento);
+        return new CheckoutResultado(MapearParaDto(pedido, instrucoes), referenciaPagamento, instrucoes?.UrlPagamento);
     }
 
     public async Task<PedidoDto?> ObterDoUsuarioAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default)
     {
         var pedido = await contexto.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
-        return pedido is null || pedido.UsuarioId != usuarioId ? null : MapearParaDto(pedido, await ObterUrlPagamentoAsync(pedido, ct));
+        return pedido is null || pedido.UsuarioId != usuarioId ? null : MapearParaDto(pedido, await ObterInstrucoesAsync(pedido, ct));
     }
 
     public async Task<ResultadoPaginado<PedidoResumoDto>> ListarDoUsuarioAsync(Guid usuarioId, int pagina, int tamanhoPagina, CancellationToken ct = default)
@@ -191,7 +215,7 @@ public class ServicoDePedidos(
     public async Task<PedidoDto?> ObterPorIdAsync(Guid pedidoId, CancellationToken ct = default)
     {
         var pedido = await contexto.Pedidos.AsNoTracking().Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
-        return pedido is null ? null : MapearParaDto(pedido, await ObterUrlPagamentoAsync(pedido, ct));
+        return pedido is null ? null : MapearParaDto(pedido, await ObterInstrucoesAsync(pedido, ct));
     }
 
     public async Task<PedidoDto> CancelarAsync(Guid pedidoId, Guid usuarioId, CancellationToken ct = default)
@@ -342,19 +366,24 @@ public class ServicoDePedidos(
         }
     }
 
-    private async Task<string?> ObterUrlPagamentoAsync(Pedido pedido, CancellationToken ct)
+    /// <summary>Só pedido pendente tem o que pagar; depois disso as instruções somem da resposta.</summary>
+    private async Task<InstrucoesDePagamentoDto?> ObterInstrucoesAsync(Pedido pedido, CancellationToken ct)
     {
         if (pedido.Status != StatusPedido.Pendente)
         {
             return null;
         }
 
-        return await contexto.Pagamentos.AsNoTracking()
+        var pagamento = await contexto.Pagamentos.AsNoTracking()
             .Where(p => p.PedidoId == pedido.Id)
             .OrderByDescending(p => p.CriadoEmUtc)
-            .Select(p => p.UrlPagamento)
             .FirstOrDefaultAsync(ct);
+
+        return pagamento is null ? null : MapearInstrucoes(pagamento);
     }
+
+    private static InstrucoesDePagamentoDto MapearInstrucoes(Pagamento pagamento) =>
+        new(pagamento.Metodo, pagamento.CodigoPix, pagamento.LinhaDigitavel, pagamento.UrlPagamento, pagamento.ExpiraEmUtc);
 
     private async Task<Pedido> ObterAgregadoOuFalharAsync(Guid pedidoId, CancellationToken ct) =>
         await contexto.Pedidos.Include(p => p.Itens).FirstOrDefaultAsync(p => p.Id == pedidoId, ct)
@@ -366,7 +395,7 @@ public class ServicoDePedidos(
     private static PedidoResumoDto MapearParaResumoDto(Pedido pedido) =>
         new(pedido.Id, pedido.UsuarioId, pedido.Status, pedido.CriadoEmUtc, pedido.Total, pedido.Itens.Count);
 
-    private static PedidoDto MapearParaDto(Pedido pedido, string? urlPagamento = null) => new(
+    private static PedidoDto MapearParaDto(Pedido pedido, InstrucoesDePagamentoDto? instrucoes = null) => new(
         pedido.Id,
         pedido.UsuarioId,
         pedido.Status,
@@ -381,5 +410,6 @@ public class ServicoDePedidos(
         pedido.MetodoDeEnvio,
         pedido.ValorFrete,
         pedido.PrazoEntregaDias,
-        pedido.Status == StatusPedido.Pendente ? urlPagamento : null);
+        pedido.Status == StatusPedido.Pendente ? instrucoes?.UrlPagamento : null,
+        pedido.Status == StatusPedido.Pendente ? instrucoes : null);
 }

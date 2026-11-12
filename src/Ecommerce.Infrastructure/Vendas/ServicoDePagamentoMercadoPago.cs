@@ -6,69 +6,150 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Ecommerce.Application.Vendas;
+using Ecommerce.Domain.Comum;
+using Ecommerce.Domain.Vendas;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Infrastructure.Vendas;
 
 /// <summary>
-/// Mercado Pago Checkout Pro: o checkout cria uma "preference" e o cliente é redirecionado pra
-/// página do Mercado Pago (Pix, cartão, boleto — nenhum dado de pagamento passa por aqui). O
+/// Mercado Pago, checkout transparente: o checkout cria o pagamento direto em <c>POST /v1/payments</c>
+/// (Pix ou boleto) e a loja mostra ao cliente o código Pix ou o boleto, sem redirecionar. O
 /// resultado chega por webhook (<c>PagamentosController.WebhookMercadoPago</c>), que só avisa "o
 /// pagamento X mudou"; o status confiável vem de <see cref="ConsultarPagamentoAsync"/>.
-/// Integração via HTTP direto (API REST v1) em vez do SDK oficial: são só duas chamadas, e assim
-/// fica sob o mesmo <see cref="HttpClient"/> tipado/resiliente do resto da aplicação.
+/// Sandbox = mesmas URLs com o access token de teste (<c>TEST-...</c>); não há host separado.
+/// Integração via HTTP direto (API REST v1) em vez do SDK oficial: são só duas chamadas.
 /// </summary>
 public class ServicoDePagamentoMercadoPago(
     HttpClient http,
     IOptions<OpcoesPagamentos> opcoesPagamentos,
     IOptions<OpcoesAplicacao> opcoesAplicacao,
+    TimeProvider relogio,
     ILogger<ServicoDePagamentoMercadoPago> logger) : IServicoDePagamento
 {
     public const string UrlBase = "https://api.mercadopago.com/";
+
+    /// <summary>Boleto emitido pelo Bradesco; o outro boleto do Mercado Pago é o "pec" (lotérica).</summary>
+    internal const string MetodoBoleto = "bolbradesco";
+
+    internal const string MetodoPix = "pix";
+
+    /// <summary>ISO 8601 com milissegundos e fuso, como nos exemplos do Mercado Pago.</summary>
+    private const string FormatoDeData = "yyyy-MM-dd'T'HH:mm:ss.fffzzz";
 
     private OpcoesMercadoPago Opcoes => opcoesPagamentos.Value.MercadoPago;
 
     public async Task<CobrancaIniciada> IniciarCobrancaAsync(SolicitacaoDeCobranca solicitacao, CancellationToken ct = default)
     {
-        var urlFrontend = opcoesAplicacao.Value.UrlFrontend.TrimEnd('/');
         var urlApi = opcoesAplicacao.Value.UrlPublicaApi.TrimEnd('/');
-        var urlRetorno = $"{urlFrontend}/checkout/confirmacao?pedido={solicitacao.PedidoId}";
+        var pagador = solicitacao.Pagador;
+        var (nome, sobrenome) = SepararNome(pagador.Nome);
+        var ehBoleto = solicitacao.Metodo == MetodoDePagamento.Boleto;
 
-        var preferencia = new PreferenciaRequisicao(
-            // Um único item com o total já descontado: o valor cobrado tem que bater com o
-            // Pedido.Total (cupom incluso), e o detalhamento dos itens fica no nosso pedido.
-            [new ItemPreferencia(solicitacao.PedidoId.ToString(), solicitacao.Descricao, 1, solicitacao.Valor, "BRL")],
-            solicitacao.EmailComprador is null ? null : new PagadorPreferencia(solicitacao.EmailComprador),
+        var corpo = new PagamentoRequisicao(
+            solicitacao.Valor,
+            solicitacao.Descricao,
+            ehBoleto ? MetodoBoleto : MetodoPix,
             solicitacao.PedidoId.ToString(),
-            // notification_url precisa ser pública/HTTPS — em dev (sem UrlPublicaApi) fica de fora
-            // e vale o webhook cadastrado no painel do Mercado Pago, se houver.
+            // notification_url precisa ser pública/HTTPS. Em dev (sem UrlPublicaApi) fica de fora e
+            // vale o webhook cadastrado no painel do Mercado Pago, se houver.
             string.IsNullOrEmpty(urlApi) ? null : $"{urlApi}/api/v1/pagamentos/webhook/mercadopago",
-            new UrlsDeRetorno($"{urlRetorno}&pagamento=aprovado", $"{urlRetorno}&pagamento=pendente", $"{urlRetorno}&pagamento=falhou"),
-            // O Mercado Pago recusa auto_return com URL de retorno não-HTTPS (ex.: localhost).
-            urlFrontend.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? "approved" : null);
+            CalcularValidade(solicitacao.Metodo).ToString(FormatoDeData, CultureInfo.InvariantCulture),
+            new PagadorRequisicao(
+                pagador.Email,
+                nome,
+                sobrenome,
+                new IdentificacaoRequisicao("CPF", pagador.Cpf),
+                // O boleto exige o endereço do pagador; o Pix aceita, mas não precisa.
+                ehBoleto
+                    ? new EnderecoRequisicao(
+                        new string(pagador.Endereco.Cep.Where(char.IsAsciiDigit).ToArray()),
+                        pagador.Endereco.Logradouro,
+                        pagador.Endereco.Numero,
+                        pagador.Endereco.Bairro,
+                        pagador.Endereco.Cidade,
+                        pagador.Endereco.Uf)
+                    : null));
 
-        using var requisicao = new HttpRequestMessage(HttpMethod.Post, "checkout/preferences")
+        using var requisicao = new HttpRequestMessage(HttpMethod.Post, "v1/payments")
         {
-            Content = JsonContent.Create(preferencia),
+            Content = JsonContent.Create(corpo),
         };
         AdicionarAutorizacao(requisicao);
-        // Retry do checkout não cria duas preferences pro mesmo pedido.
-        requisicao.Headers.Add("X-Idempotency-Key", solicitacao.PedidoId.ToString());
+        // Obrigatório em /v1/payments. Repetir a chamada (retry de rede) devolve o mesmo pagamento
+        // em vez de criar outro para o mesmo pedido.
+        requisicao.Headers.Add("X-Idempotency-Key", $"{solicitacao.PedidoId}:{solicitacao.Metodo}");
 
         using var resposta = await http.SendAsync(requisicao, ct);
         if (!resposta.IsSuccessStatusCode)
         {
-            var corpo = await resposta.Content.ReadAsStringAsync(ct);
-            logger.LogError("Mercado Pago recusou a preference do pedido {PedidoId}: {Status} {Corpo}", solicitacao.PedidoId, (int)resposta.StatusCode, corpo);
-            throw new Domain.Comum.ExcecaoDeDominio("Não foi possível iniciar o pagamento agora. Tente novamente em instantes.");
+            var erro = await resposta.Content.ReadAsStringAsync(ct);
+            logger.LogError(
+                "Mercado Pago recusou o {Metodo} do pedido {PedidoId}: {Status} {Corpo}",
+                solicitacao.Metodo, solicitacao.PedidoId, (int)resposta.StatusCode, erro);
+            throw new ExcecaoDeDominio(MensagemDeFalha(solicitacao.Metodo));
         }
 
-        var criada = await resposta.Content.ReadFromJsonAsync<PreferenciaResposta>(ct)
-            ?? throw new InvalidOperationException("Resposta vazia do Mercado Pago ao criar preference.");
+        var criado = await resposta.Content.ReadFromJsonAsync<PagamentoCriadoResposta>(ct)
+            ?? throw new InvalidOperationException("Resposta vazia do Mercado Pago ao criar o pagamento.");
 
-        return new CobrancaIniciada(criada.Id, Opcoes.UsarSandbox ? criada.SandboxInitPoint : criada.InitPoint);
+        if (criado.Status is "rejected" or "cancelled")
+        {
+            logger.LogWarning(
+                "Mercado Pago criou o {Metodo} do pedido {PedidoId} já como {Status} ({Detalhe})",
+                solicitacao.Metodo, solicitacao.PedidoId, criado.Status, criado.StatusDetail);
+            throw new ExcecaoDeDominio(MensagemDeFalha(solicitacao.Metodo));
+        }
+
+        var instrucoes = ehBoleto
+            ? new InstrucoesDaCobranca(
+                UrlPagamento: criado.TransactionDetails?.ExternalResourceUrl,
+                // A documentação do boleto não lista este campo; quando vier, poupa abrir o PDF.
+                LinhaDigitavel: criado.TransactionDetails?.DigitableLine,
+                ExpiraEmUtc: criado.DateOfExpiration?.UtcDateTime)
+            : new InstrucoesDaCobranca(
+                UrlPagamento: criado.PointOfInteraction?.TransactionData?.TicketUrl,
+                CodigoPix: criado.PointOfInteraction?.TransactionData?.QrCode,
+                ExpiraEmUtc: criado.DateOfExpiration?.UtcDateTime);
+
+        if (ehBoleto ? string.IsNullOrEmpty(instrucoes.UrlPagamento) : string.IsNullOrEmpty(instrucoes.CodigoPix))
+        {
+            // Sem isso o cliente não tem como pagar: melhor falhar o checkout (nada é gravado).
+            logger.LogError("Mercado Pago não devolveu as instruções do {Metodo} do pedido {PedidoId} (pagamento {Id})", solicitacao.Metodo, solicitacao.PedidoId, criado.Id);
+            throw new ExcecaoDeDominio(MensagemDeFalha(solicitacao.Metodo));
+        }
+
+        return new CobrancaIniciada(criado.Id.ToString(CultureInfo.InvariantCulture), instrucoes);
     }
+
+    /// <summary>
+    /// Limites do Mercado Pago: Pix de 30 min a 30 dias; boleto de 1 a 30 dias (o padrão deles é 3,
+    /// porque a compensação leva até 2 dias úteis). Configuração fora disso é ajustada ao limite.
+    /// </summary>
+    internal DateTimeOffset CalcularValidade(MetodoDePagamento metodo)
+    {
+        var agora = relogio.GetUtcNow();
+        return metodo == MetodoDePagamento.Boleto
+            ? agora.AddDays(Math.Clamp(Opcoes.ValidadeDoBoletoEmDias, 1, 30))
+            : agora.AddMinutes(Math.Clamp(Opcoes.ValidadeDoPixEmMinutos, 30, 30 * 24 * 60));
+    }
+
+    /// <summary>"Maria da Silva" vira ("Maria", "da Silva"); nome de uma palavra se repete no sobrenome.</summary>
+    internal static (string Nome, string Sobrenome) SepararNome(string nomeCompleto)
+    {
+        var partes = nomeCompleto.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return partes.Length switch
+        {
+            0 => ("Cliente", "Cliente"),
+            1 => (partes[0], partes[0]),
+            _ => (partes[0], partes[1]),
+        };
+    }
+
+    private static string MensagemDeFalha(MetodoDePagamento metodo) => metodo == MetodoDePagamento.Boleto
+        ? "Não foi possível gerar o boleto. Confira seu CPF e o endereço de entrega e tente de novo."
+        : "Não foi possível gerar o Pix. Confira seu CPF e tente de novo em instantes.";
 
     public async Task<PagamentoConsultado?> ConsultarPagamentoAsync(string idTransacao, CancellationToken ct = default)
     {
@@ -95,14 +176,14 @@ public class ServicoDePagamentoMercadoPago(
 
     /// <summary>
     /// Ver "status" em https://www.mercadopago.com.br/developers/pt/reference/payments/_payments_id/get.
-    /// "rejected" fica como Pendente de propósito: no Checkout Pro o cliente pode tentar outro
-    /// cartão na mesma preference — recusar o pedido aqui mataria uma compra que ainda pode sair.
-    /// "cancelled" (Pix/boleto expirado, cancelamento) é que encerra.
+    /// "cancelled" é o Pix ou boleto que venceu sem pagamento; "rejected" é recusa definitiva (no
+    /// checkout transparente cada pagamento é único, sem nova tentativa nele). Os dois encerram o
+    /// pedido e devolvem o estoque.
     /// </summary>
     internal static ResultadoDePagamento TraduzirStatus(string? status) => status switch
     {
         "approved" => ResultadoDePagamento.Aprovado,
-        "cancelled" => ResultadoDePagamento.Recusado,
+        "cancelled" or "rejected" => ResultadoDePagamento.Recusado,
         "refunded" or "charged_back" => ResultadoDePagamento.Estornado,
         _ => ResultadoDePagamento.Pendente,
     };
@@ -174,32 +255,52 @@ public class ServicoDePagamentoMercadoPago(
         requisicao.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Opcoes.AccessToken);
     }
 
-    private record PreferenciaRequisicao(
-        [property: JsonPropertyName("items")] IReadOnlyList<ItemPreferencia> Itens,
-        [property: JsonPropertyName("payer"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PagadorPreferencia? Pagador,
+    private record PagamentoRequisicao(
+        [property: JsonPropertyName("transaction_amount")] decimal Valor,
+        [property: JsonPropertyName("description")] string Descricao,
+        [property: JsonPropertyName("payment_method_id")] string Metodo,
         [property: JsonPropertyName("external_reference")] string ReferenciaExterna,
         [property: JsonPropertyName("notification_url"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? UrlNotificacao,
-        [property: JsonPropertyName("back_urls")] UrlsDeRetorno UrlsDeRetorno,
-        [property: JsonPropertyName("auto_return"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RetornoAutomatico);
+        [property: JsonPropertyName("date_of_expiration")] string Validade,
+        [property: JsonPropertyName("payer")] PagadorRequisicao Pagador);
 
-    private record ItemPreferencia(
-        [property: JsonPropertyName("id")] string Id,
-        [property: JsonPropertyName("title")] string Titulo,
-        [property: JsonPropertyName("quantity")] int Quantidade,
-        [property: JsonPropertyName("unit_price")] decimal PrecoUnitario,
-        [property: JsonPropertyName("currency_id")] string Moeda);
+    private record PagadorRequisicao(
+        [property: JsonPropertyName("email")] string Email,
+        [property: JsonPropertyName("first_name")] string Nome,
+        [property: JsonPropertyName("last_name")] string Sobrenome,
+        [property: JsonPropertyName("identification")] IdentificacaoRequisicao Identificacao,
+        [property: JsonPropertyName("address"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EnderecoRequisicao? Endereco);
 
-    private record PagadorPreferencia([property: JsonPropertyName("email")] string Email);
+    private record IdentificacaoRequisicao(
+        [property: JsonPropertyName("type")] string Tipo,
+        [property: JsonPropertyName("number")] string Numero);
 
-    private record UrlsDeRetorno(
-        [property: JsonPropertyName("success")] string Sucesso,
-        [property: JsonPropertyName("pending")] string Pendente,
-        [property: JsonPropertyName("failure")] string Falha);
+    private record EnderecoRequisicao(
+        [property: JsonPropertyName("zip_code")] string Cep,
+        [property: JsonPropertyName("street_name")] string Logradouro,
+        [property: JsonPropertyName("street_number")] string Numero,
+        [property: JsonPropertyName("neighborhood")] string Bairro,
+        [property: JsonPropertyName("city")] string Cidade,
+        [property: JsonPropertyName("federal_unit")] string Uf);
 
-    private record PreferenciaResposta(
-        [property: JsonPropertyName("id")] string Id,
-        [property: JsonPropertyName("init_point")] string InitPoint,
-        [property: JsonPropertyName("sandbox_init_point")] string SandboxInitPoint);
+    private record PagamentoCriadoResposta(
+        [property: JsonPropertyName("id")] long Id,
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("status_detail")] string? StatusDetail,
+        [property: JsonPropertyName("date_of_expiration")] DateTimeOffset? DateOfExpiration,
+        [property: JsonPropertyName("point_of_interaction")] PontoDeInteracaoResposta? PointOfInteraction,
+        [property: JsonPropertyName("transaction_details")] DetalhesDaTransacaoResposta? TransactionDetails);
+
+    private record PontoDeInteracaoResposta(
+        [property: JsonPropertyName("transaction_data")] DadosDaTransacaoResposta? TransactionData);
+
+    private record DadosDaTransacaoResposta(
+        [property: JsonPropertyName("qr_code")] string? QrCode,
+        [property: JsonPropertyName("ticket_url")] string? TicketUrl);
+
+    private record DetalhesDaTransacaoResposta(
+        [property: JsonPropertyName("external_resource_url")] string? ExternalResourceUrl,
+        [property: JsonPropertyName("digitable_line")] string? DigitableLine);
 
     private record PagamentoResposta(
         [property: JsonPropertyName("id")] long Id,

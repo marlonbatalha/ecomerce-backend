@@ -1,3 +1,4 @@
 namespace Ecommerce.Api.Contas;
 
-public record AtualizarPerfilRequisicao(string Nome);
+/// <param name="Cpf">Com ou sem pontuação. Omitido (null) mantém o atual.</param>
+public record AtualizarPerfilRequisicao(string Nome, string? Cpf = null);

@@ -467,12 +467,28 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .ValueGeneratedOnAdd()
                         .HasColumnType("RAW(16)");
 
+                    b.Property<string>("CodigoPix")
+                        .HasMaxLength(1000)
+                        .HasColumnType("NVARCHAR2(1000)");
+
                     b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<DateTime?>("ExpiraEmUtc")
                         .HasColumnType("TIMESTAMP(7)");
 
                     b.Property<string>("IdTransacao")
                         .HasMaxLength(200)
                         .HasColumnType("NVARCHAR2(200)");
+
+                    b.Property<string>("LinhaDigitavel")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)");
+
+                    b.Property<string>("Metodo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("NVARCHAR2(20)");
 
                     b.Property<Guid>("PedidoId")
                         .HasColumnType("RAW(16)");
@@ -571,6 +587,10 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnType("NVARCHAR2(2000)")
                         .HasColumnName("CarimboDeConcorrencia");
 
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("NVARCHAR2(11)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("NVARCHAR2(256)");
@@ -627,6 +647,9 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                         .HasColumnName("NomeDeUsuario");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Cpf")
+                        .IsUnique();
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");

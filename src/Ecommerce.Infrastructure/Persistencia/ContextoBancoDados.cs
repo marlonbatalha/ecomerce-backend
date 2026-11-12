@@ -1,4 +1,5 @@
 using Ecommerce.Domain.Catalogo;
+using Ecommerce.Domain.Comum;
 using Ecommerce.Domain.Contas;
 using Ecommerce.Domain.Estoque;
 using Ecommerce.Domain.Identidade;
@@ -73,6 +74,11 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
             b.Property(u => u.LockoutEnd).HasColumnName("BloqueadoAte");
             b.Property(u => u.LockoutEnabled).HasColumnName("BloqueioAtivo");
             b.Property(u => u.AccessFailedCount).HasColumnName("TentativasDeAcessoFalhas");
+
+            b.Property(u => u.Cpf).HasMaxLength(Cpf.Tamanho);
+            // Índice único no Oracle ignora linhas com a coluna nula: várias contas sem CPF convivem.
+            // Sem filtro (o EF põe um "IS NOT NULL" por convenção, e o Oracle não aceita índice com WHERE).
+            b.HasIndex(u => u.Cpf).IsUnique().HasFilter(null);
         });
 
         construtorDeModelo.Entity<IdentityRole<Guid>>(b =>

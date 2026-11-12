@@ -25,12 +25,47 @@ public static class AuxiliaresDeTeste
         return await LogarAsync(fabrica.CriarCliente(), email);
     }
 
-    public static async Task<(HttpClient Cliente, string Email)> CriarClienteLogadoAsync(this FabricaDeAplicacaoTeste fabrica)
+    /// <param name="comCpf">Pix e boleto exigem CPF no perfil; false simula quem ainda não cadastrou.</param>
+    public static async Task<(HttpClient Cliente, string Email)> CriarClienteLogadoAsync(this FabricaDeAplicacaoTeste fabrica, bool comCpf = true)
     {
         var email = $"cliente-{Guid.NewGuid():N}@exemplo.com";
         var cliente = fabrica.CriarCliente();
         (await cliente.PostAsJsonAsync("/api/v1/auth/registrar", new { nome = "Cliente Teste", email, senha = Senha })).EnsureSuccessStatusCode();
-        return (await LogarAsync(cliente, email), email);
+        await LogarAsync(cliente, email);
+        if (comCpf)
+        {
+            await cliente.CadastrarCpfAsync();
+        }
+
+        return (cliente, email);
+    }
+
+    /// <summary>Grava um CPF válido e único no perfil (o checkout recusa sem ele).</summary>
+    public static async Task<string> CadastrarCpfAsync(this HttpClient cliente, string nome = "Cliente Teste")
+    {
+        var cpf = GerarCpf();
+        (await cliente.PutAsJsonAsync("/api/v1/conta/perfil", new { nome, cpf })).EnsureSuccessStatusCode();
+        return cpf;
+    }
+
+    /// <summary>CPF aleatório com dígitos verificadores corretos (o índice é único entre as contas).</summary>
+    public static string GerarCpf()
+    {
+        var digitos = Enumerable.Range(0, 9).Select(_ => Random.Shared.Next(10)).ToList();
+        for (var tamanho = 9; tamanho <= 10; tamanho++)
+        {
+            var soma = 0;
+            for (var i = 0; i < tamanho; i++)
+            {
+                soma += digitos[i] * (tamanho + 1 - i);
+            }
+
+            var resto = soma % 11;
+            digitos.Add(resto < 2 ? 0 : 11 - resto);
+        }
+
+        var cpf = string.Concat(digitos);
+        return cpf.Distinct().Count() == 1 ? GerarCpf() : cpf;
     }
 
     public static async Task<ProdutoDto> CriarProdutoComVarianteAsync(this HttpClient clienteAdmin, decimal preco = 100m, int estoque = 10)
@@ -82,11 +117,12 @@ public static class AuxiliaresDeTeste
         return (await resposta.Content.ReadFromJsonAsync<EnderecoDto>())!.Id;
     }
 
-    /// <summary>Cadastra um endereço e finaliza a compra do carrinho atual com PAC.</summary>
-    public static async Task<HttpResponseMessage> FinalizarCompraAsync(this HttpClient cliente, string? codigoCupom = null)
+    /// <summary>Cadastra um endereço e finaliza a compra do carrinho atual com PAC (Pix, se não disser outro).</summary>
+    public static async Task<HttpResponseMessage> FinalizarCompraAsync(
+        this HttpClient cliente, string? codigoCupom = null, string metodoDePagamento = "Pix")
     {
         var enderecoId = await cliente.CriarEnderecoAsync();
-        return await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "PAC", codigoCupom });
+        return await cliente.PostAsJsonAsync("/api/v1/pedidos/checkout", new { enderecoId, metodoDeEnvio = "PAC", metodoDePagamento, codigoCupom });
     }
 
     private static async Task<HttpClient> LogarAsync(HttpClient cliente, string email)

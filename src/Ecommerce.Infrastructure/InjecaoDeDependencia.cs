@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Security.Cryptography;
 using System.Text;
 using Ecommerce.Application.Autenticacao;
@@ -154,6 +155,8 @@ public static class InjecaoDeDependencia
     {
         var secao = configuracao.GetSection(OpcoesPagamentos.SecaoConfiguracao);
         servicos.Configure<OpcoesPagamentos>(secao);
+        // Validade do Pix/boleto é calculada a partir do relógio; testes podem trocar por um fixo.
+        servicos.TryAddSingleton(TimeProvider.System);
 
         var provedor = secao.Get<OpcoesPagamentos>()?.Provedor ?? OpcoesPagamentos.ProvedorFake;
         if (string.Equals(provedor, OpcoesPagamentos.ProvedorMercadoPago, StringComparison.OrdinalIgnoreCase))

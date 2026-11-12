@@ -30,6 +30,12 @@ public class OpcoesMercadoPago
     /// </summary>
     public string ChaveSecretaWebhook { get; set; } = string.Empty;
 
-    /// <summary>Usa o <c>sandbox_init_point</c> em vez do <c>init_point</c> (contas de teste antigas).</summary>
-    public bool UsarSandbox { get; set; }
+    /// <summary>
+    /// Validade do Pix. Curta de propósito: o estoque fica reservado até o Pix vencer. O Mercado
+    /// Pago aceita de 30 minutos a 30 dias.
+    /// </summary>
+    public int ValidadeDoPixEmMinutos { get; set; } = 30;
+
+    /// <summary>Validade do boleto (1 a 30 dias). 3 é o padrão do Mercado Pago: a compensação leva até 2 dias úteis.</summary>
+    public int ValidadeDoBoletoEmDias { get; set; } = 3;
 }
