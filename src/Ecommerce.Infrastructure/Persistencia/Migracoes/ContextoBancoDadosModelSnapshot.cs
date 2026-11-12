@@ -231,6 +231,31 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
                     b.ToTable("CTA_Enderecos", (string)null);
                 });
 
+            modelBuilder.Entity("Ecommerce.Domain.Contas.Favorito", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("TIMESTAMP(7)");
+
+                    b.Property<Guid>("ProdutoId")
+                        .HasColumnType("RAW(16)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("RAW(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.HasIndex("UsuarioId", "ProdutoId")
+                        .IsUnique();
+
+                    b.ToTable("CTA_Favoritos", (string)null);
+                });
+
             modelBuilder.Entity("Ecommerce.Domain.Estoque.AjusteDeEstoque", b =>
                 {
                     b.Property<Guid>("Id")
@@ -803,6 +828,21 @@ namespace Ecommerce.Infrastructure.Persistencia.Migracoes
 
             modelBuilder.Entity("Ecommerce.Domain.Contas.Endereco", b =>
                 {
+                    b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Ecommerce.Domain.Contas.Favorito", b =>
+                {
+                    b.HasOne("Ecommerce.Domain.Catalogo.Produto", null)
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Ecommerce.Infrastructure.Identidade.Usuario", null)
                         .WithMany()
                         .HasForeignKey("UsuarioId")

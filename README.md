@@ -66,7 +66,7 @@ Configurações sensíveis (connection strings, chaves de API, segredos) **não*
 - [x] Autenticação (Identity + JWT — registro, login, refresh, logout)
 - [x] Catálogo: categorias (árvore) e produtos/variantes (CRUD admin, busca pública paginada/filtrada)
 - [x] Carrinho (autenticado ou anônimo) e Pedido (checkout, máquina de estados, webhook de pagamento)
-- [x] Conta (endereços, perfil, troca de senha) e Admin (clientes, pedidos, auditoria de estoque)
+- [x] Conta (endereços, favoritos, perfil, troca de senha) e Admin (clientes, pedidos, auditoria de estoque)
 - [x] Imagens de produto: upload, remoção e reordenação — disco local (dev) ou Object Storage S3-compatível
 - [x] Cupons de desconto (percentual/valor fixo, validade, limite de usos, pedido mínimo)
 - [x] Pagamento real com Mercado Pago (Checkout Pro + webhook assinado)

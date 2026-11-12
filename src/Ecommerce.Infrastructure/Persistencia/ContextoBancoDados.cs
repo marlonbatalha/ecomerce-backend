@@ -42,6 +42,8 @@ public class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opcoes)
 
     public DbSet<Endereco> Enderecos => Set<Endereco>();
 
+    public DbSet<Favorito> Favoritos => Set<Favorito>();
+
     protected override void OnModelCreating(ModelBuilder construtorDeModelo)
     {
         base.OnModelCreating(construtorDeModelo);

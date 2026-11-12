@@ -61,6 +61,7 @@ public static class InjecaoDeDependencia
         servicos.AddScoped<IServicoCupons, ServicoCupons>();
         servicos.AddScoped<IServicoDeFrete, ServicoDeFreteFake>();
         servicos.AddScoped<IServicoEnderecos, ServicoEnderecos>();
+        servicos.AddScoped<IServicoFavoritos, ServicoFavoritos>();
         servicos.AddScoped<IServicoConta, ServicoConta>();
         servicos.AddScoped<IServicoClientes, ServicoClientes>();
 
